@@ -22,10 +22,11 @@ use super::ValidatorSet;
 /// Ouroboros params deserialization.
 #[derive(Debug, PartialEq, Deserialize)]
 pub struct OuroborosParams {
-	/// Slot duration.
+	/// Time to wait before next block or authority switching, in seconds.
+    /// Equivalent to slot duration in the Ouroboros paper.
 	#[serde(rename="stepDuration")]
 	pub step_duration: Uint,
-	/// Valid authorities
+	/// Validators. Equivalent to stakeholders/leaders in the Ouroboros paper.
 	pub validators: ValidatorSet,
 }
 

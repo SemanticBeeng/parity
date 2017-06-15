@@ -41,9 +41,10 @@ use super::validator_set::{ValidatorSet, new_validator_set};
 /// `Ouroboros` params.
 #[derive(Debug, PartialEq)]
 pub struct OuroborosParams {
-	/// Time to wait before next block or authority switching.
+	/// Time to wait before next block or authority switching, in seconds.
+    /// Equivalent to slot duration in the Ouroboros paper.
 	pub step_duration: Duration,
-	/// Valid validators.
+	/// Validators. Equivalent to stakeholders/leaders in the Ouroboros paper.
 	pub validators: ethjson::spec::ValidatorSet,
 	/// Namereg contract address.
 	pub registrar: Address,

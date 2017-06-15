@@ -5,3 +5,4 @@
 | Ouroboros term | Parity term |
 |----------------|-------------|
 | Slot           | Step        |
+| Stakeholder/Leader | Validator |
