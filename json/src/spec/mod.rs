@@ -29,6 +29,7 @@ pub mod validator_set;
 pub mod instant_seal;
 pub mod basic_authority;
 pub mod authority_round;
+pub mod ouroboros;
 pub mod tendermint;
 
 pub use self::account::Account;
@@ -44,4 +45,5 @@ pub use self::validator_set::ValidatorSet;
 pub use self::instant_seal::{InstantSeal, InstantSealParams};
 pub use self::basic_authority::{BasicAuthority, BasicAuthorityParams};
 pub use self::authority_round::{AuthorityRound, AuthorityRoundParams};
+pub use self::ouroboros::{Ouroboros, OuroborosParams};
 pub use self::tendermint::{Tendermint, TendermintParams};

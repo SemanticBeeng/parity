@@ -16,7 +16,7 @@
 
 //! Engine deserialization.
 
-use super::{Ethash, InstantSeal, BasicAuthority, AuthorityRound, Tendermint};
+use super::{Ethash, InstantSeal, BasicAuthority, AuthorityRound, Tendermint, Ouroboros};
 
 /// Engine deserialization.
 #[derive(Debug, PartialEq, Deserialize)]
@@ -35,6 +35,8 @@ pub enum Engine {
 	/// AuthorityRound engine.
 	#[serde(rename="authorityRound")]
 	AuthorityRound(AuthorityRound),
+    /// Ouroboros engine.
+    Ouroboros(Ouroboros),
 	/// Tendermint engine.
 	#[serde(rename="tendermint")]
 	Tendermint(Tendermint)
