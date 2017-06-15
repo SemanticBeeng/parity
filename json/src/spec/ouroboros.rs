@@ -23,8 +23,8 @@ use super::ValidatorSet;
 #[derive(Debug, PartialEq, Deserialize)]
 pub struct OuroborosParams {
 	/// Slot duration.
-	#[serde(rename="slotDuration")]
-	pub slot_duration: Uint,
+	#[serde(rename="stepDuration")]
+	pub step_duration: Uint,
 	/// Valid authorities
 	pub validators: ValidatorSet,
 }
@@ -45,7 +45,7 @@ mod tests {
 	fn ouroboros_deserialization() {
 		let s = r#"{
 			"params": {
-				"slotDuration": "0x02",
+				"stepDuration": "0x02",
 				"validators": {
 					"list" : ["0xc6d9d2cd449a754c494264e1809c50e34d64562b"]
 				}
