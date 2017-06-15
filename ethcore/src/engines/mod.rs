@@ -22,6 +22,7 @@ mod null_engine;
 mod instant_seal;
 mod basic_authority;
 mod authority_round;
+mod ouroboros;
 mod tendermint;
 mod validator_set;
 mod signer;
@@ -30,6 +31,7 @@ pub use self::null_engine::NullEngine;
 pub use self::instant_seal::InstantSeal;
 pub use self::basic_authority::BasicAuthority;
 pub use self::authority_round::AuthorityRound;
+pub use self::ouroboros::Ouroboros;
 pub use self::tendermint::Tendermint;
 
 use std::sync::Weak;
