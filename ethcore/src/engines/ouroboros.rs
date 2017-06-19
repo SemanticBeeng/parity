@@ -46,6 +46,15 @@ pub struct OuroborosParams {
 	pub step_duration: Duration,
 	/// Validators. Equivalent to stakeholders/leaders in the Ouroboros paper.
 	pub validators: ethjson::spec::ValidatorSet,
+    /// Security parameter k. A transaction is declared stable if and only if
+    /// it is in a block that is more than this many blocks deep in the
+    /// ledger. Equivalent to blkSecurityParam in cardano.
+    pub security_parameter_k: u64,
+    /// Security parameter expressed in number of slots. Equivalent to
+    /// slotSecurityParam in cardano.
+    pub slot_security_parameter: u64,
+    /// Number of slots inside one epoch. Equivalent to epochSlots in cardano.
+    pub epoch_slots: u64,
 	/// Namereg contract address.
 	pub registrar: Address,
 }
@@ -55,6 +64,9 @@ impl From<ethjson::spec::OuroborosParams> for OuroborosParams {
 		OuroborosParams {
 			step_duration: Duration::from_secs(p.step_duration.into()),
 			validators: p.validators,
+            security_parameter_k: p.security_parameter_k,
+            slot_security_parameter: 2 * p.security_parameter_k,
+            epoch_slots: 10 * p.security_parameter_k,
 			registrar: Address::new(),
 		}
 	}
