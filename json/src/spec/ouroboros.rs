@@ -28,6 +28,11 @@ pub struct OuroborosParams {
 	pub step_duration: Uint,
 	/// Validators. Equivalent to stakeholders/leaders in the Ouroboros paper.
 	pub validators: ValidatorSet,
+    /// Security parameter k. A transaction is declared stable if and only if
+    /// it is in a block that is more than this many blocks deep in the
+    /// ledger. Equivalent to blkSecurityParam in cardano.
+    #[serde(rename="securityParameterK")]
+    pub security_parameter_k: u64,
 }
 
 /// Ouroboros engine deserialization.
@@ -49,7 +54,8 @@ mod tests {
 				"stepDuration": "0x02",
 				"validators": {
 					"list" : ["0xc6d9d2cd449a754c494264e1809c50e34d64562b"]
-				}
+				},
+                "securityParameterK": 60
 			}
 		}"#;
 
