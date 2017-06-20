@@ -44,6 +44,30 @@ pub struct AuthorityRound {
 	pub signature: H520,
 }
 
+impl Into<Generic> for AuthorityRound {
+	fn into(self) -> Generic {
+		let mut s = RlpStream::new_list(2);
+		s.append(&self.step).append(&self.signature);
+		Generic(s.out())
+	}
+}
+
+/// Ouroboros seal.
+pub struct Ouroboros {
+	/// Seal step.
+	pub step: usize,
+	/// Seal signature.
+	pub signature: H520,
+}
+
+impl Into<Generic> for Ouroboros {
+	fn into(self) -> Generic {
+		let mut s = RlpStream::new_list(2);
+		s.append(&self.step).append(&self.signature);
+		Generic(s.out())
+	}
+}
+
 /// Tendermint seal.
 pub struct Tendermint {
 	/// Seal round.
@@ -52,14 +76,6 @@ pub struct Tendermint {
 	pub proposal: H520,
 	/// Precommit seal signatures.
 	pub precommits: Vec<H520>,
-}
-
-impl Into<Generic> for AuthorityRound {
-	fn into(self) -> Generic {
-		let mut s = RlpStream::new_list(2);
-		s.append(&self.step).append(&self.signature);
-		Generic(s.out())
-	}
 }
 
 impl Into<Generic> for Tendermint {
@@ -78,6 +94,8 @@ pub enum Seal {
 	Ethereum(Ethereum),
 	/// AuthorityRound seal.
 	AuthorityRound(AuthorityRound),
+    /// Ouroboros seal.
+    Ouroboros(Ouroboros),
 	/// Tendermint seal.
 	Tendermint(Tendermint),
 	/// Generic RLP seal.
@@ -95,6 +113,10 @@ impl From<ethjson::spec::Seal> for Seal {
 				step: ar.step.into(),
 				signature: ar.signature.into()
 			}),
+			ethjson::spec::Seal::Ouroboros(o) => Seal::Ouroboros(Ouroboros {
+				step: o.step.into(),
+				signature: o.signature.into()
+			}),
 			ethjson::spec::Seal::Tendermint(tender) => Seal::Tendermint(Tendermint {
 				round: tender.round.into(),
 				proposal: tender.proposal.into(),
@@ -111,6 +133,7 @@ impl Into<Generic> for Seal {
 			Seal::Generic(generic) => generic,
 			Seal::Ethereum(eth) => eth.into(),
 			Seal::AuthorityRound(ar) => ar.into(),
+			Seal::Ouroboros(o) => o.into(),
 			Seal::Tendermint(tender) => tender.into(),
 		}
 	}

@@ -36,6 +36,7 @@ pub enum Engine {
 	#[serde(rename="authorityRound")]
 	AuthorityRound(AuthorityRound),
     /// Ouroboros engine.
+    #[serde(rename="ouroboros")]
     Ouroboros(Ouroboros),
 	/// Tendermint engine.
 	#[serde(rename="tendermint")]

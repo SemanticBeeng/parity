@@ -39,6 +39,15 @@ pub struct AuthorityRoundSeal {
 	pub signature: H520,
 }
 
+/// Ouroboros seal.
+#[derive(Debug, PartialEq, Deserialize)]
+pub struct OuroborosSeal {
+	/// Seal step.
+	pub step: Uint,
+	/// Seal signature.
+	pub signature: H520,
+}
+
 /// Tendermint seal.
 #[derive(Debug, PartialEq, Deserialize)]
 pub struct TendermintSeal {
@@ -59,6 +68,9 @@ pub enum Seal {
 	/// AuthorityRound seal.
 	#[serde(rename="authorityRound")]
 	AuthorityRound(AuthorityRoundSeal),
+    /// Ouroboros seal.
+    #[serde(rename="ouroboros")]
+    Ouroboros(OuroborosSeal),
 	/// Tendermint seal.
 	#[serde(rename="tendermint")]
 	Tendermint(TendermintSeal),
@@ -83,6 +95,11 @@ mod tests {
 			"generic": "0xe011bbe8db4e347b4e8c937c1c8370e4b5ed33adb3db69cbdb7a38e1e50b1b82fa"
 		},{
 			"authorityRound": {
+				"step": "0x0",
+				"signature": "0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+			}
+		},{
+			"ouroboros": {
 				"step": "0x0",
 				"signature": "0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
 			}
