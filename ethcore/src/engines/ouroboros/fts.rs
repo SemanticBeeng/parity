@@ -1,9 +1,7 @@
 //! Follow the Satoshi algorithm to produce a list of slots and slot leaders
 //! based on how much stake each of the slot leaders has.
 
-use rand::{self, Rng};
-
-use std::collections::HashMap;
+use rand::{self, Rng, SeedableRng};
 
 use util::*;
 
@@ -27,9 +25,11 @@ pub const GENESIS_SEED: &str = "vasa opasa skovoroda Ggurda boroda provoda";
 pub fn follow_the_satoshi<'a>(
     seed: &str,
     genesis_balances: &[(&'a StakeholderId, Coin)],
-    epoch_slots: u64, total_coins: u64) -> SlotLeaders<'a> {
+    epoch_slots: u64,
+    total_coins: u64) -> SlotLeaders<'a> {
 
-    let mut rng = rand::thread_rng();
+    let seed_bytes: Vec<_> = seed.bytes().map(|b| b as u32).collect();
+    let mut rng = rand::ChaChaRng::from_seed(&seed_bytes);
 
     let mut coin_indices: Vec<_> = (0..epoch_slots)
         .map(|i| (i, rng.gen_range(0, total_coins)))
@@ -80,15 +80,17 @@ mod tests {
         let bbb = Address::from_str("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb").unwrap();
         let balances = vec![(&aaa, 50), (&bbb, 50)];
 
-        let result = follow_the_satoshi(GENESIS_SEED, &balances, 1_000, 100);
+        let result = follow_the_satoshi(GENESIS_SEED, &balances, 10, 100);
+        assert_eq!(result, vec![&aaa, &aaa, &aaa, &bbb, &aaa, &aaa, &aaa, &aaa, &aaa, &bbb]);
     }
 
     #[test]
     fn two_stakeholders_skewed_stake() {
         let aaa = Address::from_str("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").unwrap();
         let bbb = Address::from_str("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb").unwrap();
-        let balances = vec![(&aaa, 99), (&bbb, 1)];
+        let balances = vec![(&aaa, 80), (&bbb, 20)];
 
-        let result = follow_the_satoshi(GENESIS_SEED, &balances, 1_000, 100);
+        let result = follow_the_satoshi(GENESIS_SEED, &balances, 10, 100);
+        assert_eq!(result, vec![&aaa, &aaa, &aaa, &bbb, &aaa, &aaa, &aaa, &aaa, &aaa, &aaa]);
     }
 }
