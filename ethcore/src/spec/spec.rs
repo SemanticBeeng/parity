@@ -131,7 +131,7 @@ impl From<ethjson::spec::Spec> for Spec {
 		Spec {
 			name: s.name.clone().into(),
 			params: params.clone(),
-			engine: Spec::engine(s.engine, params, builtins),
+			engine: Spec::engine(s.engine, params, builtins, &s.accounts),
 			data_dir: s.data_dir.unwrap_or(s.name).into(),
 			nodes: s.nodes.unwrap_or_else(Vec::new),
 			parent_hash: g.parent_hash,
@@ -160,7 +160,7 @@ macro_rules! load_bundled {
 impl Spec {
 	/// Convert engine spec into a arc'd Engine of the right underlying type.
 	/// TODO avoid this hard-coded nastiness - use dynamic-linked plugin framework instead.
-	fn engine(engine_spec: ethjson::spec::Engine, params: CommonParams, builtins: BTreeMap<Address, Builtin>) -> Arc<Engine> {
+	fn engine(engine_spec: ethjson::spec::Engine, params: CommonParams, builtins: BTreeMap<Address, Builtin>, accounts: &ethjson::spec::State) -> Arc<Engine> {
 		match engine_spec {
 			ethjson::spec::Engine::Null => Arc::new(NullEngine::new(params, builtins)),
 			ethjson::spec::Engine::InstantSeal(instant) => Arc::new(InstantSeal::new(params, instant.params.registrar.map_or_else(Address::new, Into::into), builtins)),
@@ -168,7 +168,7 @@ impl Spec {
 			ethjson::spec::Engine::BasicAuthority(basic_authority) => Arc::new(BasicAuthority::new(params, From::from(basic_authority.params), builtins)),
 			ethjson::spec::Engine::AuthorityRound(authority_round) => AuthorityRound::new(params, From::from(authority_round.params), builtins).expect("Failed to start AuthorityRound consensus engine."),
 			ethjson::spec::Engine::Tendermint(tendermint) => Tendermint::new(params, From::from(tendermint.params), builtins).expect("Failed to start the Tendermint consensus engine."),
-			ethjson::spec::Engine::Ouroboros(ouroboros) => Ouroboros::new(params, From::from(ouroboros.params), builtins).expect("Failed to start Ouroboros consensus engine."),
+			ethjson::spec::Engine::Ouroboros(ouroboros) => Ouroboros::new(params, From::from(ouroboros.params), builtins, accounts).expect("Failed to start Ouroboros consensus engine."),
 		}
 	}
 

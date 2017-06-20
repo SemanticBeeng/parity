@@ -108,7 +108,7 @@ impl AsMillis for Duration {
 
 impl Ouroboros {
 	/// Create a new instance of the Ouroboros engine.
-	pub fn new(params: CommonParams, our_params: OuroborosParams, builtins: BTreeMap<Address, Builtin>) -> Result<Arc<Self>, Error> {
+	pub fn new(params: CommonParams, our_params: OuroborosParams, builtins: BTreeMap<Address, Builtin>, accounts: &ethjson::spec::State) -> Result<Arc<Self>, Error> {
 
         // Always timeout.
         // TODO: Authority round turns off timeouts during testing, investigate
