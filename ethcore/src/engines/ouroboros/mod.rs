@@ -38,6 +38,8 @@ use client::{Client, EngineClient};
 use super::signer::EngineSigner;
 use super::validator_set::{ValidatorSet, new_validator_set};
 
+mod fts;
+
 /// `Ouroboros` params.
 #[derive(Debug, PartialEq)]
 pub struct OuroborosParams {
