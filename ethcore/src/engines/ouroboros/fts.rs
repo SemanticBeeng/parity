@@ -22,23 +22,24 @@ pub fn follow_the_satoshi<'a>(
     seed: &str,
     genesis_balances: &[(&'a StakeholderId, Coin)],
     epoch_slots: u64,
-    total_coins: u64) -> SlotLeaders<'a> {
+    total_coins: Coin) -> SlotLeaders<'a> {
 
     let seed_bytes: Vec<_> = seed.bytes().map(|b| b as u32).collect();
     let mut rng = rand::ChaChaRng::from_seed(&seed_bytes);
 
     let mut coin_indices: Vec<_> = (0..epoch_slots)
-        .map(|i| (i, rng.gen_range(0, total_coins)))
+        // TODO: https://github.com/rust-lang-nursery/rand/issues/146
+        .map(|i| (i, Coin::from(rng.gen_range(0, total_coins.as_u64()))))
         .collect();
 
     coin_indices.sort_by_key(|&(_, r)| r);
 
-    let mut max_coins = 0;
+    let mut max_coins = Coin::from(0);
     let mut ci = coin_indices.iter().peekable();
     let mut slot_leaders = Vec::with_capacity(epoch_slots as usize);
 
     for &(stakeholder, coins) in genesis_balances {
-        max_coins += coins;
+        max_coins = max_coins + coins;
 
         while let Some(&&(slot, coin)) = ci.peek() {
             if coin < max_coins {
@@ -58,13 +59,14 @@ pub fn follow_the_satoshi<'a>(
 #[cfg(test)]
 mod tests {
     use super::{follow_the_satoshi, GENESIS_SEED};
+    use engines::ouroboros::Coin;
 	use util::*;
 
     #[test]
     fn one_stakeholder_is_always_the_leader() {
         let address = Address::from_str("0000000000000000000000000000000000000005").unwrap();
         let balances = vec![
-            (&address, 10)
+            (address.clone(), Coin::from(10))
         ];
         let result = follow_the_satoshi(GENESIS_SEED, &balances, 3, 10);
         assert_eq!(result, vec![&address, &address, &address]);
