@@ -55,4 +55,8 @@ pub trait ValidatorSet: Send + Sync {
 	fn report_benign(&self, _validator: &Address) {}
 	/// Allows blockchain state access.
 	fn register_contract(&self, _client: Weak<Client>) {}
+    /// Returns the list of validator addresses
+    fn validators(&self) -> &[Address] {
+        unimplemented!()
+    }
 }

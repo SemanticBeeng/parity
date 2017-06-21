@@ -52,6 +52,10 @@ impl ValidatorSet for SimpleList {
 	fn count(&self, _bh: &H256) -> usize {
 		self.validator_n
 	}
+
+    fn validators(&self) -> &[Address] {
+        &self.validators
+    }
 }
 
 #[cfg(test)]
