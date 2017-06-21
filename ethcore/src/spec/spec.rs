@@ -347,6 +347,10 @@ impl Spec {
 	/// Accounts with secrets "0".sha3() and "1".sha3() are the validators.
 	pub fn new_test_round() -> Self { load_bundled!("authority_round") }
 
+	/// Create a new Spec with Ouroboros consensus
+	/// Accounts with secrets "0".sha3() and "1".sha3() are the validators.
+	pub fn new_test_ouroboros() -> Self { load_bundled!("ouroboros") }
+
 	/// Create a new Spec with Tendermint consensus which does internal sealing (not requiring work).
 	/// Account "0".sha3() and "1".sha3() are a authorities.
 	pub fn new_test_tendermint() -> Self { load_bundled!("tendermint") }

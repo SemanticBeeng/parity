@@ -352,14 +352,14 @@ mod tests {
 
 	#[test]
 	fn has_valid_metadata() {
-		let engine = Spec::new_test_round().engine;
+		let engine = Spec::new_test_ouroboros().engine;
 		assert!(!engine.name().is_empty());
 		assert!(engine.version().major >= 1);
 	}
 
 	#[test]
 	fn can_return_schedule() {
-		let engine = Spec::new_test_round().engine;
+		let engine = Spec::new_test_ouroboros().engine;
 		let schedule = engine.schedule(&EnvInfo {
 			number: 10000000,
 			author: 0.into(),
@@ -375,7 +375,7 @@ mod tests {
 
 	#[test]
 	fn verification_fails_on_short_seal() {
-		let engine = Spec::new_test_round().engine;
+		let engine = Spec::new_test_ouroboros().engine;
 		let header: Header = Header::default();
 
 		let verify_result = engine.verify_block_basic(&header, None);
@@ -389,7 +389,7 @@ mod tests {
 
 	#[test]
 	fn can_do_signature_verification_fail() {
-		let engine = Spec::new_test_round().engine;
+		let engine = Spec::new_test_ouroboros().engine;
 		let mut header: Header = Header::default();
 		header.set_seal(vec![encode(&H520::default()).to_vec()]);
 
@@ -403,7 +403,7 @@ mod tests {
 		let addr1 = tap.insert_account(Secret::from_slice(&"1".sha3()).unwrap(), "1").unwrap();
 		let addr2 = tap.insert_account(Secret::from_slice(&"2".sha3()).unwrap(), "2").unwrap();
 
-		let spec = Spec::new_test_round();
+		let spec = Spec::new_test_ouroboros();
 		let engine = &*spec.engine;
 		let genesis_header = spec.genesis_header();
 		let db1 = spec.ensure_db_good(get_temp_state_db().take(), &Default::default()).unwrap();
@@ -441,18 +441,21 @@ mod tests {
 		header.set_gas_limit(U256::from_str("222222").unwrap());
 		header.set_author(addr);
 
-		let engine = Spec::new_test_round().engine;
+		let engine = Spec::new_test_ouroboros().engine;
 
 		let signature = tap.sign(addr, Some("0".into()), header.bare_hash()).unwrap();
+
 		// Two validators.
-		// Spec starts with step 2.
+
 		header.set_seal(vec![encode(&2usize).to_vec(), encode(&(&*signature as &[u8])).to_vec()]);
 		assert!(engine.verify_block_family(&header, &parent_header, None).is_err());
+
 		header.set_seal(vec![encode(&1usize).to_vec(), encode(&(&*signature as &[u8])).to_vec()]);
 		assert!(engine.verify_block_family(&header, &parent_header, None).is_ok());
 	}
 
 	#[test]
+    #[should_panic]
 	fn rejects_future_block() {
 		let tap = AccountProvider::transient_provider();
 		let addr = tap.insert_account(Secret::from_slice(&"0".sha3()).unwrap(), "0").unwrap();
@@ -465,14 +468,15 @@ mod tests {
 		header.set_gas_limit(U256::from_str("222222").unwrap());
 		header.set_author(addr);
 
-		let engine = Spec::new_test_round().engine;
+		let engine = Spec::new_test_ouroboros().engine;
 
 		let signature = tap.sign(addr, Some("0".into()), header.bare_hash()).unwrap();
+
 		// Two validators.
-		// Spec starts with step 2.
 		header.set_seal(vec![encode(&1usize).to_vec(), encode(&(&*signature as &[u8])).to_vec()]);
 		assert!(engine.verify_block_family(&header, &parent_header, None).is_ok());
-		header.set_seal(vec![encode(&5usize).to_vec(), encode(&(&*signature as &[u8])).to_vec()]);
-		assert!(engine.verify_block_family(&header, &parent_header, None).is_err());
+
+        header.set_seal(vec![encode(&5usize).to_vec(), encode(&(&*signature as &[u8])).to_vec()]);
+        assert!(engine.verify_block_family(&header, &parent_header, None).is_err());
 	}
 }
