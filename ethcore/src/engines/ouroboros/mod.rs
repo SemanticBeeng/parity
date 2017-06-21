@@ -40,6 +40,12 @@ use super::validator_set::{ValidatorSet, new_validator_set};
 
 mod fts;
 
+// Type aliases to match cardano types
+type Coin = u64;
+type StakeholderId = Address;
+type SlotLeaders<'a> = Vec<&'a StakeholderId>;
+type Stakes = HashMap<StakeholderId, Coin>;
+
 /// `Ouroboros` params.
 #[derive(Debug, PartialEq)]
 pub struct OuroborosParams {
@@ -158,6 +164,11 @@ impl Ouroboros {
 	fn is_future_step(&self, step: usize) -> bool {
 		step > self.step.load(AtomicOrdering::SeqCst) + 1
 	}
+
+    fn stakeholders(validators: &ethjson::spec::ValidatorSet, accounts: &ethjson::spec::State) -> Stakes {
+        HashMap::new()
+    }
+
 }
 
 fn unix_now() -> Duration {
@@ -287,10 +298,11 @@ impl Engine for Ouroboros {
 		let step = header_step(header)?;
 		// Give one step slack if step is lagging, double vote is still not possible.
 		if self.is_future_step(step) {
-			trace!(target: "engine", "verify_block_unordered: block from the future");
+			println!("verify_block_unordered: block from the future");
 			self.validators.report_benign(header.author());
 			Err(BlockError::InvalidSeal)?
 		} else {
+            println!("not");
 			// Check if the signature belongs to a validator, can depend on parent state.
 			let proposer_signature = header_signature(header)?;
 			let correct_proposer = self.step_proposer(header.parent_hash(), step);
@@ -348,7 +360,9 @@ mod tests {
 	use tests::helpers::*;
 	use account_provider::AccountProvider;
 	use spec::Spec;
+    use ethjson;
 	use engines::Seal;
+    use super::*;
 
 	#[test]
 	fn has_valid_metadata() {
@@ -479,4 +493,36 @@ mod tests {
         header.set_seal(vec![encode(&5usize).to_vec(), encode(&(&*signature as &[u8])).to_vec()]);
         assert!(engine.verify_block_family(&header, &parent_header, None).is_err());
 	}
+
+    fn account_with_balance(balance: u64) -> ethjson::spec::Account {
+        ethjson::spec::Account {
+        	balance: Some(ethjson::uint::Uint(balance.into())),
+        	builtin: None,
+        	nonce: None,
+        	code: None,
+        	storage: None,
+        	constructor: None,
+        }
+    }
+
+    #[test]
+    fn match_validators_and_accounts() {
+        let aaa = ethjson::hash::Address(H160::from_str("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").unwrap());
+        let bbb = ethjson::hash::Address(H160::from_str("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb").unwrap());
+
+        let validators = ethjson::spec::ValidatorSet::List(vec![
+            aaa.clone(),
+            bbb.clone(),
+        ]);
+
+        let mut ledger = BTreeMap::new();
+        ledger.insert(aaa.clone(), account_with_balance(10));
+        ledger.insert(bbb.clone(), account_with_balance(50));
+        let accounts = ethjson::spec::State(ledger);
+
+        let result = Ouroboros::stakeholders(&validators, &accounts);
+
+        assert_eq!(result.get(&aaa.0), Some(&10));
+        assert_eq!(result.get(&bbb.0), Some(&50));
+    }
 }

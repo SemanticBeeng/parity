@@ -23,7 +23,7 @@ use spec::{Account, Builtin};
 
 /// Blockchain test state deserializer.
 #[derive(Debug, PartialEq, Deserialize)]
-pub struct State(BTreeMap<Address, Account>);
+pub struct State(pub BTreeMap<Address, Account>);
 
 impl State {
 	/// Returns all builtins.

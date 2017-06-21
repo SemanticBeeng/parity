@@ -3,12 +3,8 @@
 
 use rand::{self, Rng, SeedableRng};
 
+use engines::ouroboros::{Coin, SlotLeaders, StakeholderId};
 use util::*;
-
-// Type aliases to match cardano types
-type Coin = u64;
-type StakeholderId = Address;
-type SlotLeaders<'a> = Vec<&'a StakeholderId>;
 
 /// Genesis seed that will be used for the 0th epoch. We must hardcode a seed
 /// because we need to somehow determine leaders for the first ever epoch
