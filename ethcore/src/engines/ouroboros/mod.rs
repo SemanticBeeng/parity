@@ -41,9 +41,9 @@ use super::validator_set::{ValidatorSet, new_validator_set};
 mod fts;
 
 // Type aliases to match cardano types
-type Coin = u64;
+type Coin = U256;
 type StakeholderId = Address;
-type SlotLeaders<'a> = Vec<&'a StakeholderId>;
+type SlotLeaders = Vec<StakeholderId>;
 type Stakes = HashMap<StakeholderId, Coin>;
 
 /// `Ouroboros` params.
@@ -92,6 +92,7 @@ pub struct Ouroboros {
 	registrar: Address,
 	builtins: BTreeMap<Address, Builtin>,
 	client: RwLock<Option<Weak<EngineClient>>>,
+    slot_leaders: SlotLeaders,
 }
 
 fn header_step(header: &Header) -> Result<usize, ::rlp::DecoderError> {
@@ -122,6 +123,11 @@ impl Ouroboros {
 		let should_timeout = true;
 
 		let initial_step = (unix_now().as_secs() / our_params.step_duration.as_secs()) as usize;
+        let validators = new_validator_set(our_params.validators);
+        let stakeholders = Ouroboros::stakeholders(&validators, accounts);
+        let mut stakeholders: Vec<(StakeholderId, Coin)> = stakeholders.into_iter().collect();
+        stakeholders.sort_by_key(|&(id, _)| id);
+        let total_stake = stakeholders.iter().map(|&(_, amount)| amount).fold(Coin::from(0), |acc, c| acc + c.into());
 		let engine = Arc::new(
 			Ouroboros {
 				params: params,
@@ -129,11 +135,17 @@ impl Ouroboros {
 				step: AtomicUsize::new(initial_step),
 				proposed: AtomicBool::new(false),
 				signer: Default::default(),
-				validators: new_validator_set(our_params.validators),
+				validators: validators,
 				transition_service: IoService::<()>::start()?,
 				registrar: our_params.registrar,
 				builtins: builtins,
 				client: RwLock::new(None),
+                slot_leaders: fts::follow_the_satoshi(
+                    fts::GENESIS_SEED,
+                    &stakeholders,
+                    our_params.epoch_slots,
+                    total_stake,
+                ),
 			});
 		// Do not initialize timeouts for tests.
 		if should_timeout {
@@ -165,10 +177,13 @@ impl Ouroboros {
 		step > self.step.load(AtomicOrdering::SeqCst) + 1
 	}
 
-    fn stakeholders(validators: &ethjson::spec::ValidatorSet, accounts: &ethjson::spec::State) -> Stakes {
-        HashMap::new()
+    fn stakeholders(validator_set: &Box<ValidatorSet>, accounts: &ethjson::spec::State) -> Stakes {
+        validator_set.validators().into_iter().flat_map(|&v| {
+            accounts.0.get(&From::from(v)).map(|account| {
+                (v, account.balance.map_or(Coin::from(0), |c| c.into()))
+            })
+        }).collect()
     }
-
 }
 
 fn unix_now() -> Duration {
@@ -510,10 +525,12 @@ mod tests {
         let aaa = ethjson::hash::Address(H160::from_str("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").unwrap());
         let bbb = ethjson::hash::Address(H160::from_str("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb").unwrap());
 
-        let validators = ethjson::spec::ValidatorSet::List(vec![
-            aaa.clone(),
-            bbb.clone(),
-        ]);
+        let validators = new_validator_set(
+            ethjson::spec::ValidatorSet::List(vec![
+                aaa.clone(),
+                bbb.clone(),
+            ]
+        ));
 
         let mut ledger = BTreeMap::new();
         ledger.insert(aaa.clone(), account_with_balance(10));
@@ -522,7 +539,29 @@ mod tests {
 
         let result = Ouroboros::stakeholders(&validators, &accounts);
 
-        assert_eq!(result.get(&aaa.0), Some(&10));
-        assert_eq!(result.get(&bbb.0), Some(&50));
+        assert_eq!(result.get(&aaa.0), Some(&Coin::from(10)));
+        assert_eq!(result.get(&bbb.0), Some(&Coin::from(50)));
+    }
+
+    #[test]
+    fn validators_without_stake_are_excluded() {
+        let aaa = ethjson::hash::Address(H160::from_str("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").unwrap());
+        let bbb = ethjson::hash::Address(H160::from_str("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb").unwrap());
+
+        let validators = new_validator_set(
+            ethjson::spec::ValidatorSet::List(vec![
+                aaa.clone(),
+                bbb.clone(),
+            ]
+        ));
+
+        let mut ledger = BTreeMap::new();
+        ledger.insert(aaa.clone(), account_with_balance(10));
+        let accounts = ethjson::spec::State(ledger);
+
+        let result = Ouroboros::stakeholders(&validators, &accounts);
+
+        assert_eq!(result.get(&aaa.0), Some(&Coin::from(10)));
+        assert_eq!(result.get(&bbb.0), None);
     }
 }
