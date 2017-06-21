@@ -18,11 +18,11 @@ pub const GENESIS_SEED: &str = "vasa opasa skovoroda Ggurda boroda provoda";
 /// weighted by the amount of stake they have.
 // TODO: take a random number generator instead of a seed:
 // <R>, mut rng: R, where R: rand::Rng
-pub fn follow_the_satoshi<'a>(
+pub fn follow_the_satoshi(
     seed: &str,
-    genesis_balances: &[(&'a StakeholderId, Coin)],
+    genesis_balances: &[(StakeholderId, Coin)],
     epoch_slots: u64,
-    total_coins: Coin) -> SlotLeaders<'a> {
+    total_coins: Coin) -> SlotLeaders {
 
     let seed_bytes: Vec<_> = seed.bytes().map(|b| b as u32).collect();
     let mut rng = rand::ChaChaRng::from_seed(&seed_bytes);
@@ -43,7 +43,7 @@ pub fn follow_the_satoshi<'a>(
 
         while let Some(&&(slot, coin)) = ci.peek() {
             if coin < max_coins {
-                slot_leaders.push((slot, stakeholder));
+                slot_leaders.push((slot, stakeholder.clone()));
                 ci.next();
             } else {
                 break;
@@ -59,7 +59,7 @@ pub fn follow_the_satoshi<'a>(
 #[cfg(test)]
 mod tests {
     use super::{follow_the_satoshi, GENESIS_SEED};
-    use engines::ouroboros::Coin;
+    use engines::ouroboros::Coin; //, SlotLeaders, StakeholderId};
 	use util::*;
 
     #[test]
@@ -68,27 +68,33 @@ mod tests {
         let balances = vec![
             (address.clone(), Coin::from(10))
         ];
-        let result = follow_the_satoshi(GENESIS_SEED, &balances, 3, 10);
-        assert_eq!(result, vec![&address, &address, &address]);
+        let result = follow_the_satoshi(GENESIS_SEED, &balances, 3, Coin::from(10));
+        assert_eq!(result, vec![address.clone(), address.clone(), address.clone()]);
     }
 
     #[test]
     fn two_stakeholders_equal_stake() {
         let aaa = Address::from_str("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").unwrap();
         let bbb = Address::from_str("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb").unwrap();
-        let balances = vec![(&aaa, 50), (&bbb, 50)];
+        let balances = vec![
+            (aaa.clone(), Coin::from(50)),
+            (bbb.clone(), Coin::from(50)),
+        ];
 
-        let result = follow_the_satoshi(GENESIS_SEED, &balances, 10, 100);
-        assert_eq!(result, vec![&aaa, &aaa, &aaa, &bbb, &aaa, &aaa, &aaa, &aaa, &aaa, &bbb]);
+        let result = follow_the_satoshi(GENESIS_SEED, &balances, 10, Coin::from(100));
+        assert_eq!(result, vec![aaa.clone(), aaa.clone(), aaa.clone(), bbb.clone(), aaa.clone(), aaa.clone(), aaa.clone(), aaa.clone(), aaa.clone(), bbb.clone()]);
     }
 
     #[test]
     fn two_stakeholders_skewed_stake() {
         let aaa = Address::from_str("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").unwrap();
         let bbb = Address::from_str("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb").unwrap();
-        let balances = vec![(&aaa, 80), (&bbb, 20)];
+        let balances = vec![
+            (aaa.clone(), Coin::from(80)),
+            (bbb.clone(), Coin::from(20)),
+        ];
 
-        let result = follow_the_satoshi(GENESIS_SEED, &balances, 10, 100);
-        assert_eq!(result, vec![&aaa, &aaa, &aaa, &bbb, &aaa, &aaa, &aaa, &aaa, &aaa, &aaa]);
+        let result = follow_the_satoshi(GENESIS_SEED, &balances, 10, Coin::from(100));
+        assert_eq!(result, vec![aaa.clone(), aaa.clone(), aaa.clone(), bbb.clone(), aaa.clone(), aaa.clone(), aaa.clone(), aaa.clone(), aaa.clone(), aaa.clone()]);
     }
 }
