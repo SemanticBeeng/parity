@@ -1,7 +1,7 @@
 //! Follow the Satoshi algorithm to produce a list of slots and slot leaders
 //! based on how much stake each of the slot leaders has.
 
-use rand::{self, Rng, SeedableRng};
+use rand::{self, SeedableRng};
 
 use engines::ouroboros::{Coin, SlotLeaders, StakeholderId};
 use util::*;
