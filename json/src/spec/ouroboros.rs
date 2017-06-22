@@ -33,6 +33,10 @@ pub struct OuroborosParams {
     /// ledger. Equivalent to blkSecurityParam in cardano.
     #[serde(rename="securityParameterK")]
     pub security_parameter_k: u64,
+	/// Starting step. Determined automatically if not specified.
+	/// To be used for testing only, similarly to how Authority Round is tested.
+	#[serde(rename="startStep")]
+	pub start_step: Option<Uint>,
 }
 
 /// Ouroboros engine deserialization.

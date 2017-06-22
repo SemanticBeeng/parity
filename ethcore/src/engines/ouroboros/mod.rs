@@ -65,6 +65,8 @@ pub struct OuroborosParams {
     pub epoch_slots: u64,
 	/// Namereg contract address.
 	pub registrar: Address,
+	/// Starting step, only used for testing.
+	pub start_step: Option<u64>,
 }
 
 impl From<ethjson::spec::OuroborosParams> for OuroborosParams {
@@ -76,6 +78,7 @@ impl From<ethjson::spec::OuroborosParams> for OuroborosParams {
             slot_security_parameter: 2 * p.security_parameter_k,
             epoch_slots: 10 * p.security_parameter_k,
 			registrar: Address::new(),
+			start_step: p.start_step.map(Into::into),
 		}
 	}
 }
@@ -117,12 +120,15 @@ impl Ouroboros {
 	/// Create a new instance of the Ouroboros engine.
 	pub fn new(params: CommonParams, our_params: OuroborosParams, builtins: BTreeMap<Address, Builtin>, accounts: &ethjson::spec::State) -> Result<Arc<Self>, Error> {
 
-        // Always timeout.
-        // TODO: Authority round turns off timeouts during testing, investigate
-        // whether ouroboros needs this configuration or not
-		let should_timeout = true;
+        // Turn off timeouts during testing so that a test always runs within
+        // one step.
+		let should_timeout = our_params.start_step.is_none();
 
-		let initial_step = (unix_now().as_secs() / our_params.step_duration.as_secs()) as usize;
+        // Set the initial step number based on the start step parameter if
+        // we're testing, or based on the step since the beginning of unix
+        // time based on the step duration.
+		let initial_step = our_params.start_step.unwrap_or_else(|| (unix_now().as_secs() / our_params.step_duration.as_secs())) as usize;
+
         let validators = new_validator_set(our_params.validators);
         let stakeholders = Ouroboros::stakeholders(&validators, accounts);
         let mut stakeholders: Vec<(StakeholderId, Coin)> = stakeholders.into_iter().collect();

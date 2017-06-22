@@ -4,6 +4,7 @@
 		"ouroboros": {
 			"params": {
 				"stepDuration": 1,
+				"startStep": 2,
                 "securityParameterK": "60",
 				"validators": {
 					"list": [
