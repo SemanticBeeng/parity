@@ -27,9 +27,10 @@ pub fn follow_the_satoshi(
     let seed_bytes: Vec<_> = seed.bytes().map(|b| b as u32).collect();
     let mut rng = rand::ChaChaRng::from_seed(&seed_bytes);
 
+    let range = Coin::range(Coin::zero(), total_coins);
+
     let mut coin_indices: Vec<_> = (0..epoch_slots)
-        // TODO: https://github.com/rust-lang-nursery/rand/issues/146
-        .map(|i| (i, Coin::from(rng.gen_range(0, total_coins.as_u64()))))
+        .map(|i| (i, range.independent_sample(&mut rng)))
         .collect();
 
     coin_indices.sort_by_key(|&(_, r)| r);
@@ -82,7 +83,7 @@ mod tests {
         ];
 
         let result = follow_the_satoshi(GENESIS_SEED, &balances, 10, Coin::from(100));
-        assert_eq!(result, vec![aaa.clone(), aaa.clone(), aaa.clone(), bbb.clone(), aaa.clone(), aaa.clone(), aaa.clone(), aaa.clone(), aaa.clone(), bbb.clone()]);
+        assert_eq!(result, [bbb.clone(), aaa.clone(), aaa.clone(), bbb.clone(), aaa.clone(), bbb.clone(), bbb.clone(), aaa.clone(), bbb.clone(), bbb.clone()]);
     }
 
     #[test]
@@ -95,6 +96,6 @@ mod tests {
         ];
 
         let result = follow_the_satoshi(GENESIS_SEED, &balances, 10, Coin::from(100));
-        assert_eq!(result, vec![aaa.clone(), aaa.clone(), aaa.clone(), bbb.clone(), aaa.clone(), aaa.clone(), aaa.clone(), aaa.clone(), aaa.clone(), aaa.clone()]);
+        assert_eq!(result, [bbb.clone(), aaa.clone(), aaa.clone(), aaa.clone(), aaa.clone(), aaa.clone(), bbb.clone(), aaa.clone(), bbb.clone(), bbb.clone()]);
     }
 }
