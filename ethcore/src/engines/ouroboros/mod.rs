@@ -165,12 +165,13 @@ impl Ouroboros {
 		}
 	}
 
-	fn step_proposer(&self, bh: &H256, step: usize) -> Address {
-		self.validators.get(bh, step)
+	fn step_proposer(&self, step: usize) -> &Address {
+        let step = step % self.slot_leaders.len();
+		&self.slot_leaders[step]
 	}
 
-	fn is_step_proposer(&self, bh: &H256, step: usize, address: &Address) -> bool {
-		self.step_proposer(bh, step) == *address
+	fn is_step_proposer(&self, step: usize, address: &Address) -> bool {
+		self.step_proposer(step) == address
 	}
 
 	fn is_future_step(&self, step: usize) -> bool {
@@ -268,7 +269,7 @@ impl Engine for Ouroboros {
 		if self.proposed.load(AtomicOrdering::SeqCst) { return Seal::None; }
 		let header = block.header();
 		let step = self.step.load(AtomicOrdering::SeqCst);
-		if self.is_step_proposer(header.parent_hash(), step, header.author()) {
+		if self.is_step_proposer(step, header.author()) {
 			if let Ok(signature) = self.signer.sign(header.bare_hash()) {
 				trace!(target: "engine", "generate_seal: Issuing a block for step {}.", step);
 				self.proposed.store(true, AtomicOrdering::SeqCst);
@@ -320,10 +321,10 @@ impl Engine for Ouroboros {
             println!("not");
 			// Check if the signature belongs to a validator, can depend on parent state.
 			let proposer_signature = header_signature(header)?;
-			let correct_proposer = self.step_proposer(header.parent_hash(), step);
+			let correct_proposer = self.step_proposer(step);
 			if !verify_address(&correct_proposer, &proposer_signature, &header.bare_hash())? {
 				trace!(target: "engine", "verify_block_unordered: bad proposer for step: {}", step);
-				Err(EngineError::NotProposer(Mismatch { expected: correct_proposer, found: header.author().clone() }))?
+				Err(EngineError::NotProposer(Mismatch { expected: *correct_proposer, found: header.author().clone() }))?
 			}
 		}
 
