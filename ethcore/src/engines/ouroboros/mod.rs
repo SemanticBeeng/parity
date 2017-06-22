@@ -333,11 +333,20 @@ impl Engine for Ouroboros {
 
 		// Check if parent is from a previous step.
 		let parent_step = header_step(parent)?;
-		if step == parent_step {
+		if step == parent_step || step <= parent_step {
 			trace!(target: "engine", "Multiple blocks proposed for step {}.", parent_step);
 			self.validators.report_malicious(header.author());
 			Err(EngineError::DoubleVote(header.author().clone()))?;
 		}
+
+        // Report skipped primaries.
+		if step > parent_step + 1 {
+			for s in parent_step + 1..step {
+				let skipped_primary = self.step_proposer(s);
+				trace!(target: "engine", "Author {} did not build block on top of the intermediate designated primary {}.", header.author(), skipped_primary);
+				self.validators.report_benign(header.author());
+			}
+        }
 
 		Ok(())
 	}
