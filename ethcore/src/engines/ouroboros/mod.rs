@@ -314,11 +314,9 @@ impl Engine for Ouroboros {
 		let step = header_step(header)?;
 		// Give one step slack if step is lagging, double vote is still not possible.
 		if self.is_future_step(step) {
-			println!("verify_block_unordered: block from the future");
 			self.validators.report_benign(header.author());
 			Err(BlockError::InvalidSeal)?
 		} else {
-            println!("not");
 			// Check if the signature belongs to a validator, can depend on parent state.
 			let proposer_signature = header_signature(header)?;
 			let correct_proposer = self.step_proposer(step);
