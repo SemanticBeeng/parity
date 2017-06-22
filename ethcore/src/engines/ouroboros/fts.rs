@@ -35,7 +35,7 @@ pub fn follow_the_satoshi(
 
     coin_indices.sort_by_key(|&(_, r)| r);
 
-    let mut max_coins = Coin::from(0);
+    let mut max_coins = Coin::zero();
     let mut ci = coin_indices.iter().peekable();
     let mut slot_leaders = Vec::with_capacity(epoch_slots as usize);
 
