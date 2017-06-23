@@ -475,7 +475,7 @@ mod tests {
 	#[test]
 	fn proposer_switching() {
 		let tap = AccountProvider::transient_provider();
-		let addr = tap.insert_account(Secret::from_slice(&"0".sha3()).unwrap(), "0").unwrap();
+		let addr = tap.insert_account(Secret::from_slice(&"1".sha3()).unwrap(), "0").unwrap();
 		let mut parent_header: Header = Header::default();
 		parent_header.set_seal(vec![encode(&0usize).to_vec()]);
 		parent_header.set_gas_limit(U256::from_str("222222").unwrap());
@@ -498,10 +498,9 @@ mod tests {
 	}
 
 	#[test]
-    #[should_panic]
 	fn rejects_future_block() {
 		let tap = AccountProvider::transient_provider();
-		let addr = tap.insert_account(Secret::from_slice(&"0".sha3()).unwrap(), "0").unwrap();
+		let addr = tap.insert_account(Secret::from_slice(&"1".sha3()).unwrap(), "0").unwrap();
 
 		let mut parent_header: Header = Header::default();
 		parent_header.set_seal(vec![encode(&0usize).to_vec()]);
