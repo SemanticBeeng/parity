@@ -27,6 +27,8 @@ pub fn follow_the_satoshi(
     let seed_bytes: Vec<_> = seed.bytes().map(|b| b as u32).collect();
     let mut rng = rand::ChaChaRng::from_seed(&seed_bytes);
 
+    assert!(total_coins != Coin::zero(), "Total amount of coin held by the validators is 0!");
+
     let range = Coin::range(Coin::zero(), total_coins);
 
     let mut coin_indices: Vec<_> = (0..epoch_slots)
