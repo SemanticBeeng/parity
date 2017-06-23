@@ -37,6 +37,13 @@ pub struct OuroborosParams {
 	/// To be used for testing only, similarly to how Authority Round is tested.
 	#[serde(rename="startStep")]
 	pub start_step: Option<Uint>,
+	/// Gas limit divisor. Needed by Parity/Authority Round, so including to be comparable.
+	#[serde(rename="gasLimitBoundDivisor")]
+	pub gas_limit_bound_divisor: Uint,
+	/// Number of first block where EIP-155 rules are validated.
+    /// Needed by Parity/Authority Round, so including to be comparable.
+	#[serde(rename="eip155Transition")]
+	pub eip155_transition: Option<Uint>,
 }
 
 /// Ouroboros engine deserialization.
@@ -55,11 +62,13 @@ mod tests {
 	fn ouroboros_deserialization() {
 		let s = r#"{
 			"params": {
+				"gasLimitBoundDivisor": "0x0400",
 				"stepDuration": "0x02",
 				"validators": {
 					"list" : ["0xc6d9d2cd449a754c494264e1809c50e34d64562b"]
 				},
                 "securityParameterK": 60
+				"eip155Transition": "0x42",
 			}
 		}"#;
 

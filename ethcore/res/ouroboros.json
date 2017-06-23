@@ -3,6 +3,7 @@
 	"engine": {
 		"ouroboros": {
 			"params": {
+				"gasLimitBoundDivisor": "0x0400",
 				"stepDuration": 1,
 				"startStep": 2,
                 "securityParameterK": "2",

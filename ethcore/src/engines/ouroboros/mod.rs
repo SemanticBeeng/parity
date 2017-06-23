@@ -27,7 +27,7 @@ use block::*;
 use spec::CommonParams;
 use engines::{Engine, Seal, EngineError};
 use header::Header;
-use error::{Error, BlockError};
+use error::{Error, TransactionError, BlockError};
 use evm::Schedule;
 use ethjson;
 use io::{IoContext, IoHandler, TimerToken, IoService};
@@ -67,6 +67,11 @@ pub struct OuroborosParams {
 	pub registrar: Address,
 	/// Starting step, only used for testing.
 	pub start_step: Option<u64>,
+	/// Gas limit divisor. Needed by Parity/Authority Round, so including to be comparable.
+	pub gas_limit_bound_divisor: U256,
+	/// Number of first block where EIP-155 rules are validated.
+    /// Needed by Parity/Authority Round, so including to be comparable.
+	pub eip155_transition: u64,
 }
 
 impl From<ethjson::spec::OuroborosParams> for OuroborosParams {
@@ -79,6 +84,8 @@ impl From<ethjson::spec::OuroborosParams> for OuroborosParams {
             epoch_slots: 10 * p.security_parameter_k,
 			registrar: Address::new(),
 			start_step: p.start_step.map(Into::into),
+			gas_limit_bound_divisor: p.gas_limit_bound_divisor.into(),
+            eip155_transition: p.eip155_transition.map_or(0, Into::into),
 		}
 	}
 }
@@ -96,6 +103,8 @@ pub struct Ouroboros {
 	builtins: BTreeMap<Address, Builtin>,
 	client: RwLock<Option<Weak<EngineClient>>>,
     slot_leaders: SlotLeaders,
+	gas_limit_bound_divisor: U256,
+	eip155_transition: u64,
 }
 
 fn header_step(header: &Header) -> Result<usize, ::rlp::DecoderError> {
@@ -152,6 +161,8 @@ impl Ouroboros {
                     our_params.epoch_slots,
                     total_stake,
                 ),
+				gas_limit_bound_divisor: our_params.gas_limit_bound_divisor,
+				eip155_transition: our_params.eip155_transition,
 			});
 		// Do not initialize timeouts for tests.
 		if should_timeout {
@@ -258,9 +269,18 @@ impl Engine for Ouroboros {
 		Schedule::new_post_eip150(usize::max_value(), true, true, true)
 	}
 
-	fn populate_from_parent(&self, header: &mut Header, parent: &Header, _gas_floor_target: U256, _gas_ceil_target: U256) {
+	fn populate_from_parent(&self, header: &mut Header, parent: &Header, gas_floor_target: U256, _gas_ceil_target: U256) {
 		// Chain scoring: weak height scoring, backported for compatibility.
 		header.set_difficulty(parent.difficulty().clone());
+		header.set_gas_limit({
+			let gas_limit = parent.gas_limit().clone();
+			let bound_divisor = self.gas_limit_bound_divisor;
+			if gas_limit < gas_floor_target {
+				min(gas_floor_target, gas_limit + gas_limit / bound_divisor - 1.into())
+			} else {
+				max(gas_floor_target, gas_limit - gas_limit / bound_divisor + 1.into())
+			}
+		});
 	}
 
 	fn seals_internally(&self) -> Option<bool> {
@@ -345,20 +365,24 @@ impl Engine for Ouroboros {
 			Err(EngineError::DoubleVote(header.author().clone()))?;
 		}
 
-        // Report skipped primaries.
-		if step > parent_step + 1 {
-			for s in parent_step + 1..step {
-				let skipped_primary = self.step_proposer(s);
-				trace!(target: "engine", "Author {} did not build block on top of the intermediate designated primary {}.", header.author(), skipped_primary);
-				self.validators.report_benign(header.author());
-			}
-        }
+		let gas_limit_divisor = self.gas_limit_bound_divisor;
+		let min_gas = parent.gas_limit().clone() - parent.gas_limit().clone() / gas_limit_divisor;
+		let max_gas = parent.gas_limit().clone() + parent.gas_limit().clone() / gas_limit_divisor;
+		if header.gas_limit() <= &min_gas || header.gas_limit() >= &max_gas {
+			return Err(From::from(BlockError::InvalidGasLimit(OutOfBounds { min: Some(min_gas), max: Some(max_gas), found: header.gas_limit().clone() })));
+		}
 
 		Ok(())
 	}
 
-	fn verify_transaction_basic(&self, t: &UnverifiedTransaction, _header: &Header) -> result::Result<(), Error> {
+	fn verify_transaction_basic(&self, t: &UnverifiedTransaction, header: &Header) -> result::Result<(), Error> {
 		t.check_low_s()?;
+
+		if let Some(n) = t.network_id() {
+			if header.number() >= self.eip155_transition && n != self.params().chain_id {
+				return Err(TransactionError::InvalidNetworkId.into());
+			}
+		}
 
 		Ok(())
 	}
