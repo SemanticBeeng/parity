@@ -44,6 +44,8 @@ pub struct AuthorityRoundSeal {
 pub struct OuroborosSeal {
 	/// Seal step.
 	pub step: Uint,
+    /// Step start time.
+    pub step_start_time: Uint,
 	/// Seal signature.
 	pub signature: H520,
 }
@@ -101,6 +103,7 @@ mod tests {
 		},{
 			"ouroboros": {
 				"step": "0x0",
+                "step_start_time": "0x0",
 				"signature": "0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
 			}
 		},{

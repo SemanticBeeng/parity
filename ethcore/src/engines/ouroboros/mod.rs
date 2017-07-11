@@ -95,6 +95,7 @@ pub struct Ouroboros {
 	params: CommonParams,
 	step_duration: Duration,
 	step: AtomicUsize,
+    step_start_time: AtomicUsize,
 	proposed: AtomicBool,
 	signer: EngineSigner,
 	validators: Box<ValidatorSet>,
@@ -108,11 +109,15 @@ pub struct Ouroboros {
 }
 
 fn header_step(header: &Header) -> Result<usize, ::rlp::DecoderError> {
-	UntrustedRlp::new(&header.seal().get(0).expect("was either checked with verify_block_basic or is genesis; has 2 fields; qed (Make sure the spec file has a correct genesis seal)")).as_val()
+	UntrustedRlp::new(&header.seal().get(0).expect("was either checked with verify_block_basic or is genesis; has 3 fields; qed (Make sure the spec file has a correct genesis seal)")).as_val()
+}
+
+fn header_step_start_time(header: &Header) -> Result<usize, ::rlp::DecoderError> {
+	UntrustedRlp::new(&header.seal().get(1).expect("was checked with verify_block_basic; has 3 fields; qed")).as_val()
 }
 
 fn header_signature(header: &Header) -> Result<Signature, ::rlp::DecoderError> {
-	UntrustedRlp::new(&header.seal().get(1).expect("was checked with verify_block_basic; has 2 fields; qed")).as_val::<H520>().map(Into::into)
+	UntrustedRlp::new(&header.seal().get(2).expect("was checked with verify_block_basic; has 3 fields; qed")).as_val::<H520>().map(Into::into)
 }
 
 trait AsMillis {
@@ -134,9 +139,9 @@ impl Ouroboros {
 		let should_timeout = our_params.start_step.is_none();
 
         // Set the initial step number based on the start step parameter if
-        // we're testing, or based on the step since the beginning of unix
-        // time based on the step duration.
-		let initial_step = our_params.start_step.unwrap_or_else(|| (unix_now().as_secs() / our_params.step_duration.as_secs())) as usize;
+        // we're testing, or 0.
+		let initial_step = our_params.start_step.unwrap_or(0) as usize;
+        let step_start_time = our_params.start_step.unwrap_or_else(|| unix_now().as_secs()) as usize;
 
         let validators = new_validator_set(our_params.validators);
         let stakeholders = Ouroboros::stakeholders(&validators, accounts);
@@ -148,6 +153,7 @@ impl Ouroboros {
 				params: params,
 				step_duration: our_params.step_duration,
 				step: AtomicUsize::new(initial_step),
+                step_start_time: AtomicUsize::new(step_start_time),
 				proposed: AtomicBool::new(false),
 				signer: Default::default(),
 				validators: validators,
@@ -172,9 +178,14 @@ impl Ouroboros {
 		Ok(engine)
 	}
 
+	fn calibrate_step(&self, parent_step: usize, parent_step_start_time: usize) {
+		self.step.store(parent_step, AtomicOrdering::SeqCst);
+        self.step_start_time.store(parent_step_start_time, AtomicOrdering::SeqCst);
+	}
+
 	fn remaining_step_duration(&self) -> Duration {
 		let now = unix_now();
-		let step_end = self.step_duration * (self.step.load(AtomicOrdering::SeqCst) as u32 + 1);
+		let step_end = Duration::from_secs(self.step_start_time.load(AtomicOrdering::SeqCst) as u64) + self.step_duration;
 		if step_end > now {
 			step_end - now
 		} else {
@@ -191,8 +202,14 @@ impl Ouroboros {
 		self.step_proposer(step) == address
 	}
 
-	fn is_future_step(&self, step: usize) -> bool {
-		step > self.step.load(AtomicOrdering::SeqCst) + 1
+	fn is_future_step(&self, step: usize, parent_step: usize, parent_step_start_time: usize) -> bool {
+		if step > self.step.load(AtomicOrdering::SeqCst) + 1 {
+			// Make absolutely sure that the step is correct.
+			self.calibrate_step(parent_step, parent_step_start_time);
+			step > self.step.load(AtomicOrdering::SeqCst) + 1
+		} else {
+			false
+		}
 	}
 
     fn stakeholders(validator_set: &Box<ValidatorSet>, accounts: &ethjson::spec::State) -> Stakes {
@@ -238,8 +255,12 @@ impl Engine for Ouroboros {
 
 	fn version(&self) -> SemanticVersion { SemanticVersion::new(1, 0, 0) }
 
-	/// Two fields - consensus step and the corresponding proposer signature.
-	fn seal_fields(&self) -> usize { 2 }
+	/// Three fields:
+    ///
+    /// - consensus step
+    /// - consensus step start time
+    /// - proposer signature
+	fn seal_fields(&self) -> usize { 3 }
 
 	fn params(&self) -> &CommonParams { &self.params }
 
@@ -249,6 +270,7 @@ impl Engine for Ouroboros {
 
 	fn step(&self) {
 		self.step.fetch_add(1, AtomicOrdering::SeqCst);
+        self.step_start_time.fetch_add(self.step_duration.as_secs() as usize, AtomicOrdering::SeqCst);
 		self.proposed.store(false, AtomicOrdering::SeqCst);
 		if let Some(ref weak) = *self.client.read() {
 			if let Some(c) = weak.upgrade() {
@@ -261,6 +283,7 @@ impl Engine for Ouroboros {
 	fn extra_info(&self, header: &Header) -> BTreeMap<String, String> {
 		map![
 			"step".into() => header_step(header).as_ref().map(ToString::to_string).unwrap_or("".into()),
+            "step_start_time".into() => header_step_start_time(header).as_ref().map(ToString::to_string).unwrap_or("".into()),
 			"signature".into() => header_signature(header).as_ref().map(ToString::to_string).unwrap_or("".into())
 		]
 	}
@@ -295,11 +318,16 @@ impl Engine for Ouroboros {
 		if self.proposed.load(AtomicOrdering::SeqCst) { return Seal::None; }
 		let header = block.header();
 		let step = self.step.load(AtomicOrdering::SeqCst);
+        let step_start_time = self.step_start_time.load(AtomicOrdering::SeqCst);
 		if self.is_step_proposer(step, header.author()) {
 			if let Ok(signature) = self.signer.sign(header.bare_hash()) {
 				trace!(target: "engine", "generate_seal: Issuing a block for step {}.", step);
 				self.proposed.store(true, AtomicOrdering::SeqCst);
-				return Seal::Regular(vec![encode(&step).to_vec(), encode(&(&H520::from(signature) as &[u8])).to_vec()]);
+				return Seal::Regular(vec![
+                    encode(&step).to_vec(),
+                    encode(&step_start_time).to_vec(),
+                    encode(&(&H520::from(signature) as &[u8])).to_vec()
+                ]);
 			} else {
 				warn!(target: "engine", "generate_seal: FAIL: Accounts secret key unavailable.");
 			}
@@ -339,7 +367,7 @@ impl Engine for Ouroboros {
 	fn verify_block_family(&self, header: &Header, parent: &Header, _block: Option<&[u8]>) -> Result<(), Error> {
 		let step = header_step(header)?;
 		// Give one step slack if step is lagging, double vote is still not possible.
-		if self.is_future_step(step) {
+		if self.is_future_step(step, header_step(parent)?, header_step_start_time(parent)?) {
 			self.validators.report_benign(header.author());
 			Err(BlockError::InvalidSeal)?
 		} else {
@@ -501,7 +529,12 @@ mod tests {
 		let tap = AccountProvider::transient_provider();
 		let addr = tap.insert_account(Secret::from_slice(&"1".sha3()).unwrap(), "0").unwrap();
 		let mut parent_header: Header = Header::default();
-		parent_header.set_seal(vec![encode(&0usize).to_vec()]);
+        parent_header.set_seal(
+			vec![
+                encode(&0usize).to_vec(),
+                encode(&0usize).to_vec()
+            ]
+        );
 		parent_header.set_gas_limit(U256::from_str("222222").unwrap());
 		let mut header: Header = Header::default();
 		header.set_number(1);
@@ -514,10 +547,22 @@ mod tests {
 
 		// Two validators.
 
-		header.set_seal(vec![encode(&2usize).to_vec(), encode(&(&*signature as &[u8])).to_vec()]);
+		header.set_seal(
+            vec![
+                encode(&2usize).to_vec(),
+                encode(&2usize).to_vec(),
+                encode(&(&*signature as &[u8])).to_vec()
+            ]
+        );
 		assert!(engine.verify_block_family(&header, &parent_header, None).is_err());
 
-		header.set_seal(vec![encode(&1usize).to_vec(), encode(&(&*signature as &[u8])).to_vec()]);
+		header.set_seal(
+            vec![
+                encode(&1usize).to_vec(),
+                encode(&1usize).to_vec(),
+                encode(&(&*signature as &[u8])).to_vec()
+            ]
+        );
 		assert!(engine.verify_block_family(&header, &parent_header, None).is_ok());
 	}
 
@@ -527,7 +572,12 @@ mod tests {
 		let addr = tap.insert_account(Secret::from_slice(&"1".sha3()).unwrap(), "0").unwrap();
 
 		let mut parent_header: Header = Header::default();
-		parent_header.set_seal(vec![encode(&0usize).to_vec()]);
+        parent_header.set_seal(
+			vec![
+                encode(&0usize).to_vec(),
+                encode(&0usize).to_vec()
+            ]
+        );
 		parent_header.set_gas_limit(U256::from_str("222222").unwrap());
 		let mut header: Header = Header::default();
 		header.set_number(1);
@@ -539,10 +589,22 @@ mod tests {
 		let signature = tap.sign(addr, Some("0".into()), header.bare_hash()).unwrap();
 
 		// Two validators.
-		header.set_seal(vec![encode(&1usize).to_vec(), encode(&(&*signature as &[u8])).to_vec()]);
+		header.set_seal(
+            vec![
+                encode(&1usize).to_vec(),
+                encode(&1usize).to_vec(),
+                encode(&(&*signature as &[u8])).to_vec()
+            ]
+        );
 		assert!(engine.verify_block_family(&header, &parent_header, None).is_ok());
 
-        header.set_seal(vec![encode(&5usize).to_vec(), encode(&(&*signature as &[u8])).to_vec()]);
+		header.set_seal(
+            vec![
+                encode(&5usize).to_vec(),
+                encode(&5usize).to_vec(),
+                encode(&(&*signature as &[u8])).to_vec()
+            ]
+        );
         assert!(engine.verify_block_family(&header, &parent_header, None).is_err());
 	}
 
