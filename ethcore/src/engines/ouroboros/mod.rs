@@ -38,6 +38,8 @@ use client::{Client, EngineClient};
 use super::signer::EngineSigner;
 use super::validator_set::{ValidatorSet, new_validator_set};
 
+use pvss;
+
 mod fts;
 
 // Type aliases to match cardano types

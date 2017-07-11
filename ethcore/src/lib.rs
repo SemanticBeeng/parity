@@ -108,6 +108,7 @@ extern crate ethabi;
 extern crate hardware_wallet;
 extern crate stats;
 extern crate itertools;
+extern crate pvss;
 
 #[macro_use]
 extern crate log;

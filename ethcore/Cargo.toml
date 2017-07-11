@@ -45,6 +45,7 @@ ethcore-stratum = { path = "../stratum" }
 ethcore-bloom-journal = { path = "../util/bloom" }
 hardware-wallet = { path = "../hw" }
 stats = { path = "../util/stats" }
+pvss = { git = "https://github.com/vincenthz/rust-pvss.git" }
 
 [dependencies.hyper]
 git = "https://github.com/paritytech/hyper"
