@@ -20,7 +20,7 @@ use std::sync::atomic::{AtomicUsize, AtomicBool, Ordering as AtomicOrdering};
 use std::sync::Weak;
 use std::time::{UNIX_EPOCH, Duration};
 use util::*;
-use ethkey::{verify_address, Signature};
+use ethkey::{verify_address, Signature, Public};
 use rlp::{UntrustedRlp, View, encode};
 use account_provider::AccountProvider;
 use block::*;
@@ -131,6 +131,29 @@ impl AsMillis for Duration {
 	fn as_millis(&self) -> u64 {
 		self.as_secs()*1_000 + (self.subsec_nanos()/1_000_000) as u64
 	}
+}
+
+struct PvssSecret {
+    escrow: pvss::simple::Escrow,
+    commitments: Vec<pvss::simple::Commitment>,
+    shares: Vec<pvss::simple::EncryptedShare>,
+}
+
+impl PvssSecret {
+    pub fn new(public_keys: Vec<Public>) -> Self {
+        // Calculate the threshold in the same way as cardano does https://github.com/input-output-hk/cardano-sl/blob/9d527fd/godtossing/Pos/Ssc/GodTossing/Functions.hs#L138-L141
+        let threshold = public_keys.len() / 2 + public_keys.len() % 2;
+
+        let escrow = pvss::simple::escrow(threshold as u32);
+        let commitments = pvss::simple::commitments(&escrow);
+        let shares = pvss::simple::create_shares(&escrow, &public_keys);
+
+        PvssSecret {
+            escrow,
+            commitments,
+            shares,
+        }
+    }
 }
 
 impl Ouroboros {
