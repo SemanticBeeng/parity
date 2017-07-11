@@ -93,6 +93,7 @@ impl From<ethjson::spec::OuroborosParams> for OuroborosParams {
 /// Engine using `Ouroborous` proof-of-work consensus algorithm
 pub struct Ouroboros {
 	params: CommonParams,
+    epoch_slots: u64,
 	step_duration: Duration,
 	step: AtomicUsize,
     step_start_time: AtomicUsize,
@@ -151,6 +152,7 @@ impl Ouroboros {
 		let engine = Arc::new(
 			Ouroboros {
 				params: params,
+                epoch_slots: our_params.epoch_slots,
 				step_duration: our_params.step_duration,
 				step: AtomicUsize::new(initial_step),
                 step_start_time: AtomicUsize::new(step_start_time),
@@ -182,6 +184,11 @@ impl Ouroboros {
 		self.step.store(parent_step, AtomicOrdering::SeqCst);
         self.step_start_time.store(parent_step_start_time, AtomicOrdering::SeqCst);
 	}
+
+    fn epoch_number(&self) -> usize {
+        let step = self.step.load(AtomicOrdering::SeqCst);
+        step / self.epoch_slots as usize
+    }
 
 	fn remaining_step_duration(&self) -> Duration {
 		let now = unix_now();
