@@ -33,6 +33,9 @@ pub struct OuroborosParams {
     /// ledger. Equivalent to blkSecurityParam in cardano.
     #[serde(rename="securityParameterK")]
     pub security_parameter_k: u64,
+    /// The mutually agreed-on time of when the entire chain came into being.
+    #[serde(rename="networkWideStartTime")]
+    pub network_wide_start_time: Option<u64>,
 	/// Starting step. Determined automatically if not specified.
 	/// To be used for testing only, similarly to how Authority Round is tested.
 	#[serde(rename="startStep")]
