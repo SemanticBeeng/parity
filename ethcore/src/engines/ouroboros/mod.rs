@@ -643,11 +643,7 @@ mod tests {
     fn account_with_balance(balance: u64) -> ethjson::spec::Account {
         ethjson::spec::Account {
         	balance: Some(ethjson::uint::Uint(balance.into())),
-        	builtin: None,
-        	nonce: None,
-        	code: None,
-        	storage: None,
-        	constructor: None,
+            ..ethjson::spec::Account::default()
         }
     }
 

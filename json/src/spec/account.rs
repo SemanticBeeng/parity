@@ -28,7 +28,7 @@ use serde::Deserialize;
 use rustc_serialize::hex::FromHex;
 
 /// Spec account.
-#[derive(Debug, PartialEq, Deserialize)]
+#[derive(Debug, PartialEq, Deserialize, Default)]
 pub struct Account {
 	/// Builtin contract.
 	pub builtin: Option<Builtin>,
