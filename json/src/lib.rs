@@ -18,6 +18,7 @@ extern crate rustc_serialize;
 extern crate serde;
 extern crate serde_json;
 extern crate ethcore_util as util;
+extern crate pvss;
 #[macro_use] extern crate serde_derive;
 
 pub mod hash;
