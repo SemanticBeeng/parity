@@ -156,8 +156,10 @@ impl PvssSecret {
             .iter()
             .flat_map(|&v| {
                 accounts.0.get(&From::from(v)).map(|account| {
-                    account.pvss_public_key.as_ref().expect(
-                        &format!("could not find pvss public key for {}", v)
+                    account.pvss.as_ref().expect(
+                        &format!("could not find pvss for {}", v)
+                    ).public_key.as_ref().expect(
+                        &format!("could not find public key for {}", v)
                     )
                 })
             }).collect();
