@@ -67,8 +67,8 @@ mod tests {
 				"validators": {
 					"list" : ["0xc6d9d2cd449a754c494264e1809c50e34d64562b"]
 				},
-                "securityParameterK": 60
-				"eip155Transition": "0x42",
+                "securityParameterK": 60,
+				"eip155Transition": "0x42"
 			}
 		}"#;
 
