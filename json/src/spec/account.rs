@@ -28,7 +28,7 @@ use serde::Deserialize;
 use rustc_serialize::hex::FromHex;
 
 /// Spec account.
-#[derive(PartialEq, Deserialize)]
+#[derive(Debug, PartialEq, Deserialize)]
 pub struct Account {
 	/// Builtin contract.
 	pub builtin: Option<Builtin>,
@@ -43,39 +43,57 @@ pub struct Account {
 	/// Constructor.
 	pub constructor: Option<Bytes>,
 
-    #[serde(default)]
-    #[serde(deserialize_with = "deserialize_public_key")]
-    pub pvss_public_key: Option<pvss::crypto::PublicKey>,
-    #[serde(default)]
-    #[serde(deserialize_with = "deserialize_private_key")]
-    pub pvss_private_key: Option<pvss::crypto::PrivateKey>,
+    pub pvss: Option<Pvss>,
 }
 
-fn deserialize_public_key<D>(deserializer: D) -> Result<Option<pvss::crypto::PublicKey>, D::Error>
-where D: Deserializer {
-    let val = <Option<String>>::deserialize(deserializer)?;
-    match val {
-        Some(v) => {
-            let v = if v.starts_with("0x") { &v[2..] } else { &v };
-            let hex = FromHex::from_hex(v)
-                .map_err(|e| D::Error::custom(format!("could not convert from hex: {}. Error: {}", v, e)))?;
-            Ok(Some(pvss::crypto::PublicKey::from_bytes(&hex)))
-        },
-        None => Ok(None),
+#[derive(Debug)]
+struct HexBytes(Vec<u8>);
+
+impl Deserialize for HexBytes {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer
+    {
+        let val = String::deserialize(deserializer)?;
+        let val = if val.starts_with("0x") { &val[2..] } else { &val };
+
+        FromHex::from_hex(val)
+            .map(HexBytes)
+            .map_err(|e| {
+                D::Error::custom(format!("could not convert from hex: {}. Error: {}", val, e))
+            })
     }
 }
 
-fn deserialize_private_key<D>(deserializer: D) -> Result<Option<pvss::crypto::PrivateKey>, D::Error>
-where D: Deserializer {
-    let val = <Option<String>>::deserialize(deserializer)?;
-    match val {
-        Some(v) => {
-            let v = if v.starts_with("0x") { &v[2..] } else { &v };
-            let hex = FromHex::from_hex(v)
-                .map_err(|e| D::Error::custom(format!("could not convert from hex: {}. Error: {}", v, e)))?;
-            Ok(Some(pvss::crypto::PrivateKey::from_bytes(&hex)))
-        },
-        None => Ok(None),
+#[derive(PartialEq)]
+pub struct Pvss {
+    pub public_key: Option<pvss::crypto::PublicKey>,
+    pub private_key: Option<pvss::crypto::PrivateKey>,
+}
+
+impl Deserialize for Pvss {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer
+    {
+        #[derive(Debug, Deserialize)]
+        struct Inner {
+            public_key: Option<HexBytes>,
+            private_key: Option<HexBytes>,
+        }
+
+        let val = Inner::deserialize(deserializer)?;
+
+        let public_key = val.public_key.map(|bytes| pvss::crypto::PublicKey::from_bytes(&bytes.0));
+        let private_key = val.private_key.map(|bytes| pvss::crypto::PrivateKey::from_bytes(&bytes.0));
+
+        Ok(Pvss { public_key, private_key })
+    }
+}
+
+impl fmt::Debug for Pvss {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        "Pvss {{ hidden }}".fmt(f)
     }
 }
 
@@ -84,12 +102,6 @@ impl Account {
 	pub fn is_empty(&self) -> bool {
 		self.balance.is_none() && self.nonce.is_none() && self.code.is_none() && self.storage.is_none()
 	}
-}
-
-impl fmt::Debug for Account {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Account {{ builtin: {:?}, balance: {:?}, nonce: {:?}, code: {:?}, storage: {:?}, constructor: {:?} }}", self.builtin, self.balance, self.nonce, self.code, self.storage, self.constructor)
-    }
 }
 
 #[cfg(test)]
@@ -124,17 +136,20 @@ mod tests {
 			"balance": "1",
 			"nonce": "0",
 			"builtin": { "name": "ecrecover", "pricing": { "linear": { "base": 3000, "word": 0 } } },
-            "pvss_public_key": "0x04823124f450ea06b3e1fcffadbebac9e3d00bc6531f23b4184b8a110f63b6f7596dd1a690c592c05755584fa1860d704be9add478575cd067906afde0d2df9085",
-            "pvss_private_key": "0xfff1b7d4a600d44039402d26ecadcbc8da456d8be96b4090af9791adb7a7584b",
+            "pvss": {
+              "public_key": "0x04823124f450ea06b3e1fcffadbebac9e3d00bc6531f23b4184b8a110f63b6f7596dd1a690c592c05755584fa1860d704be9add478575cd067906afde0d2df9085",
+              "private_key": "0xfff1b7d4a600d44039402d26ecadcbc8da456d8be96b4090af9791adb7a7584b"
+            },
 			"code": "1234"
 		}"#;
 
 		let deserialized: Account = serde_json::from_str(s).unwrap();
 
-        assert!(deserialized.pvss_private_key ==
+        let pvss = deserialized.pvss.unwrap();
+        assert!(pvss.private_key ==
             Some(pvss::crypto::PrivateKey::from_bytes(
                 &FromHex::from_hex("fff1b7d4a600d44039402d26ecadcbc8da456d8be96b4090af9791adb7a7584b").unwrap())));
-        assert!(deserialized.pvss_public_key ==
+        assert!(pvss.public_key ==
             Some(pvss::crypto::PublicKey::from_bytes(
                 &FromHex::from_hex("04823124f450ea06b3e1fcffadbebac9e3d00bc6531f23b4184b8a110f63b6f7596dd1a690c592c05755584fa1860d704be9add478575cd067906afde0d2df9085").unwrap())));
 
