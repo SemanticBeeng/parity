@@ -102,6 +102,7 @@ pub struct Ouroboros {
 	proposed: AtomicBool,
 	signer: EngineSigner,
 	validators: Box<ValidatorSet>,
+    pvss_secret: PvssSecret,
 	transition_service: IoService<()>,
 	registrar: Address,
 	builtins: BTreeMap<Address, Builtin>,
@@ -139,14 +140,29 @@ struct PvssSecret {
     shares: Vec<pvss::simple::EncryptedShare>,
 }
 
+unsafe impl Send for PvssSecret {}
+unsafe impl Sync for PvssSecret {}
+
 impl PvssSecret {
-    pub fn new(public_keys: Vec<Public>) -> Self {
+    pub fn new(validator_set: &Box<ValidatorSet>, accounts: &ethjson::spec::State) -> Self {
         // Calculate the threshold in the same way as cardano does https://github.com/input-output-hk/cardano-sl/blob/9d527fd/godtossing/Pos/Ssc/GodTossing/Functions.hs#L138-L141
-        let threshold = public_keys.len() / 2 + public_keys.len() % 2;
+        let num_validators = validator_set.validators().len();
+        let threshold = num_validators / 2 + num_validators % 2;
 
         let escrow = pvss::simple::escrow(threshold as u32);
         let commitments = pvss::simple::commitments(&escrow);
-        let shares = pvss::simple::create_shares(&escrow, &public_keys);
+
+        let public_keys: Vec<_> = validator_set.validators()
+            .iter()
+            .flat_map(|&v| {
+                accounts.0.get(&From::from(v)).map(|account| {
+                    account.pvss_public_key.as_ref().expect(
+                        &format!("could not find pvss public key for {}", v)
+                    )
+                })
+            }).collect();
+
+        let shares = pvss::simple::create_shares(&escrow, public_keys);
 
         PvssSecret {
             escrow,
@@ -174,6 +190,7 @@ impl Ouroboros {
         let mut stakeholders: Vec<(StakeholderId, Coin)> = stakeholders.into_iter().collect();
         stakeholders.sort_by_key(|&(id, _)| id);
         let total_stake = stakeholders.iter().map(|&(_, amount)| amount).fold(Coin::from(0), |acc, c| acc + c.into());
+        let pvss_secret = PvssSecret::new(&validators, accounts);
 		let engine = Arc::new(
 			Ouroboros {
 				params: params,
@@ -194,6 +211,7 @@ impl Ouroboros {
                     our_params.epoch_slots,
                     total_stake,
                 ),
+                pvss_secret: pvss_secret,
 				gas_limit_bound_divisor: our_params.gas_limit_bound_divisor,
 				eip155_transition: our_params.eip155_transition,
 			});
