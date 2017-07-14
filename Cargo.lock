@@ -757,6 +757,7 @@ name = "ethjson"
 version = "0.1.0"
 dependencies = [
  "ethcore-util 1.6.8",
+ "pvss 0.1.0 (git+https://github.com/integer32llc/rust-pvss.git)",
  "rustc-serialize 0.3.19 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 0.9.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 0.9.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1906,7 +1907,7 @@ dependencies = [
 [[package]]
 name = "pvss"
 version = "0.1.0"
-source = "git+https://github.com/integer32llc/rust-pvss.git#53d92fdbb5d7478df85d3f99799bdc957d4198e9"
+source = "git+https://github.com/integer32llc/rust-pvss.git#8f45c45d79730d5fddc3906df194b3c9f697c918"
 dependencies = [
  "openssl 0.9.14 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
