@@ -48,6 +48,17 @@ type StakeholderId = Address;
 type SlotLeaders = Vec<StakeholderId>;
 type Stakes = HashMap<StakeholderId, Coin>;
 
+/// Stage in the pvss process. Intentionally not implementing the recover
+/// phase; for the purposes of performance testing, we are assuming all
+/// nodes are honest and available, which cannot be assumed in a production
+/// environment.
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
+enum PvssStage {
+    Commit,
+    Reveal,
+    // Recover, TODO
+}
+
 /// `Ouroboros` params.
 #[derive(Debug, PartialEq)]
 pub struct OuroborosParams {
@@ -106,6 +117,8 @@ pub struct Ouroboros {
 	signer: EngineSigner,
 	validators: Box<ValidatorSet>,
     pvss_secret: PvssSecret,
+    pvss_stage: RwLock<PvssStage>,
+    security_parameter_k: u64,
 	transition_service: IoService<()>,
 	registrar: Address,
 	builtins: BTreeMap<Address, Builtin>,
@@ -212,6 +225,8 @@ impl Ouroboros {
                     total_stake,
                 ),
                 pvss_secret: pvss_secret,
+                pvss_stage: RwLock::new(PvssStage::Commit),
+                security_parameter_k: our_params.security_parameter_k,
 				gas_limit_bound_divisor: our_params.gas_limit_bound_divisor,
 				eip155_transition: our_params.eip155_transition,
 			});
@@ -226,6 +241,23 @@ impl Ouroboros {
     fn epoch_number(&self) -> usize {
         let step = self.step.load(AtomicOrdering::SeqCst);
         step / self.epoch_slots as usize
+    }
+
+    fn slot_in_epoch(&self) -> usize {
+        let step = self.step.load(AtomicOrdering::SeqCst);
+        step % self.epoch_slots as usize
+    }
+
+    fn after_4k_slots(&self) -> bool {
+        self.slot_in_epoch() > 4 * self.security_parameter_k as usize
+    }
+
+    fn first_slot_in_new_epoch(&self) -> bool {
+        self.slot_in_epoch() == 0
+    }
+
+    fn compute_new_slot_leaders(&self) {
+        // placeholder
     }
 
 	fn remaining_step_duration(&self) -> Duration {
@@ -315,6 +347,15 @@ impl Engine for Ouroboros {
 
 	fn step(&self) {
 		self.step.fetch_add(1, AtomicOrdering::SeqCst);
+
+        let pvss_stage = *self.pvss_stage.read();
+        if pvss_stage == PvssStage::Commit && self.after_4k_slots() {
+            *self.pvss_stage.write() = PvssStage::Reveal;
+        } else if pvss_stage == PvssStage::Reveal && self.first_slot_in_new_epoch() {
+            self.compute_new_slot_leaders();
+            *self.pvss_stage.write() = PvssStage::Commit;
+        }
+
 		self.proposed.store(false, AtomicOrdering::SeqCst);
 		if let Some(ref weak) = *self.client.read() {
 			if let Some(c) = weak.upgrade() {
