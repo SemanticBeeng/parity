@@ -20,7 +20,7 @@ use std::sync::atomic::{AtomicUsize, AtomicBool, Ordering as AtomicOrdering};
 use std::sync::Weak;
 use std::time::{UNIX_EPOCH, Duration};
 use util::*;
-use ethkey::{verify_address, Signature, Public};
+use ethkey::{verify_address, Signature};
 use rlp::{UntrustedRlp, View, encode};
 use account_provider::AccountProvider;
 use block::*;
