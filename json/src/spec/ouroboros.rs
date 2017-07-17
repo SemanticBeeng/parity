@@ -35,7 +35,7 @@ pub struct OuroborosParams {
     pub security_parameter_k: u64,
     /// The mutually agreed-on time of when the entire chain came into being.
     #[serde(rename="networkWideStartTime")]
-    pub network_wide_start_time: Option<u64>,
+    pub network_wide_start_time: Option<Uint>,
 	/// Starting step. Determined automatically if not specified.
 	/// To be used for testing only, similarly to how Authority Round is tested.
 	#[serde(rename="startStep")]
@@ -67,6 +67,7 @@ mod tests {
 			"params": {
 				"gasLimitBoundDivisor": "0x0400",
 				"stepDuration": "0x02",
+                "networkWideStartTime": "0x596d1d34",
 				"validators": {
 					"list" : ["0xc6d9d2cd449a754c494264e1809c50e34d64562b"]
 				},
