@@ -97,7 +97,7 @@ impl From<ethjson::spec::OuroborosParams> for OuroborosParams {
             security_parameter_k: p.security_parameter_k,
             slot_security_parameter: 2 * p.security_parameter_k,
             epoch_slots: 10 * p.security_parameter_k,
-            network_wide_start_time: p.network_wide_start_time,
+            network_wide_start_time: p.network_wide_start_time.map(Into::into),
 			registrar: Address::new(),
 			start_step: p.start_step.map(Into::into),
 			gas_limit_bound_divisor: p.gas_limit_bound_divisor.into(),

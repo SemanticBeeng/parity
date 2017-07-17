@@ -56,8 +56,6 @@ impl Into<Generic> for AuthorityRound {
 pub struct Ouroboros {
 	/// Seal step.
 	pub step: usize,
-    /// Network wide start time.
-    pub network_wide_start_time: usize,
 	/// Seal signature.
 	pub signature: H520,
 }
@@ -65,7 +63,7 @@ pub struct Ouroboros {
 impl Into<Generic> for Ouroboros {
 	fn into(self) -> Generic {
 		let mut s = RlpStream::new_list(2);
-		s.append(&self.step).append(&self.network_wide_start_time).append(&self.signature);
+		s.append(&self.step).append(&self.signature);
 		Generic(s.out())
 	}
 }
@@ -117,7 +115,6 @@ impl From<ethjson::spec::Seal> for Seal {
 			}),
 			ethjson::spec::Seal::Ouroboros(o) => Seal::Ouroboros(Ouroboros {
 				step: o.step.into(),
-                network_wide_start_time: o.network_wide_start_time.into(),
 				signature: o.signature.into()
 			}),
 			ethjson::spec::Seal::Tendermint(tender) => Seal::Tendermint(Tendermint {
