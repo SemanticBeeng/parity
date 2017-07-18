@@ -268,7 +268,12 @@ impl Ouroboros {
             return network_wide_start_time - now;
         }
 
-        let step_end = self.step_duration * (self.step.load(AtomicOrdering::SeqCst) as u32 + 1);
+        let duration_seconds = self.step_duration.as_secs() as u64;
+
+        let step_end = Duration::from_secs(
+            duration_seconds *
+            (self.step.load(AtomicOrdering::SeqCst) as u64 + 1)
+        ) + network_wide_start_time;
 
 		if step_end > now {
 			step_end - now
