@@ -26,7 +26,7 @@ use account_provider::AccountProvider;
 use block::*;
 use spec::CommonParams;
 use engines::{Engine, Seal, EngineError};
-use header::Header;
+use header::{Header, BlockNumber};
 use error::{Error, TransactionError, BlockError};
 use evm::Schedule;
 use ethjson;
@@ -34,7 +34,7 @@ use io::{IoContext, IoHandler, TimerToken, IoService};
 use env_info::EnvInfo;
 use builtin::Builtin;
 use transaction::UnverifiedTransaction;
-use client::{Client, EngineClient};
+use client::{Client, EngineClient, BlockId};
 use super::signer::EngineSigner;
 use super::validator_set::{ValidatorSet, new_validator_set};
 
@@ -257,7 +257,39 @@ impl Ouroboros {
     }
 
     fn compute_new_slot_leaders(&self) {
-        // placeholder
+        let pvss_stage = *self.pvss_stage.read();
+        let step = self.step.load(AtomicOrdering::SeqCst);
+        let back_2k_slots = step - 2 * self.security_parameter_k as usize;
+
+        if let Some(ref weak) = *self.client.read() {
+            if let Some(client) = weak.upgrade() {
+                let mut stakeholders: Vec<(StakeholderId, Coin)> = self.validators
+                    .validators()
+                    .into_iter()
+                    .map(|&validator| {
+                        (
+                            validator,
+                            client.balance(
+                                &validator,
+                                BlockId::Number(back_2k_slots as BlockNumber)
+                            ).unwrap_or(Coin::from(0))
+                        )
+                    }).collect();
+                stakeholders.sort_by_key(|&(id, _)| id);
+
+                let total_stake = stakeholders.iter().map(|&(_, amount)| amount).fold(Coin::from(0), |acc, c| acc + c.into());
+
+                let slot_leaders = fts::follow_the_satoshi(
+                    fts::GENESIS_SEED,
+                    &stakeholders,
+                    self.epoch_slots,
+                    total_stake,
+                );
+
+                // placeholder
+                println!("new slot leader schedule: {:#?}", slot_leaders);
+            }
+        }
     }
 
 	fn remaining_step_duration(&self) -> Duration {
