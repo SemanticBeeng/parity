@@ -366,6 +366,11 @@ impl Spec {
 	/// Validator can be removed with `reportMalicious`.
 	pub fn new_validator_contract() -> Self { load_bundled!("validator_contract") }
 
+    /// Contract that allows broadcasting of pvss messages
+    pub fn new_pvss_contract() -> Self {
+        load_bundled!("pvss_contract")
+    }
+
 	/// Create a new Spec with BasicAuthority which uses multiple validator sets changing with height.
 	/// Account with secrets "0".sha3() is the validator for block 1 and with "1".sha3() onwards.
 	pub fn new_validator_multi() -> Self { load_bundled!("validator_multi") }
