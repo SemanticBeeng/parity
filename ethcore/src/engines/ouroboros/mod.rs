@@ -41,6 +41,7 @@ use super::validator_set::{ValidatorSet, new_validator_set};
 use pvss;
 
 mod fts;
+mod pvss_contract;
 
 // Type aliases to match cardano types
 type Coin = U256;
