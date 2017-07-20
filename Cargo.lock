@@ -1907,7 +1907,7 @@ dependencies = [
 [[package]]
 name = "pvss"
 version = "0.1.0"
-source = "git+https://github.com/integer32llc/rust-pvss.git#0973e37dcd545fb9202f8fc768e50e49a5000704"
+source = "git+https://github.com/integer32llc/rust-pvss.git#0aca3ba23072748165a4474547c8e986ff86613d"
 dependencies = [
  "openssl 0.9.14 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
