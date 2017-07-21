@@ -56,6 +56,7 @@ type Stakes = HashMap<StakeholderId, Coin>;
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 enum PvssStage {
     Commit,
+    CommitBroadcast,
     Reveal,
     // Recover, TODO
 }
@@ -119,6 +120,7 @@ pub struct Ouroboros {
 	validators: Box<ValidatorSet>,
     pvss_secret: PvssSecret,
     pvss_stage: RwLock<PvssStage>,
+    pvss_contract: pvss_contract::PvssContract,
     security_parameter_k: u64,
 	transition_service: IoService<()>,
 	registrar: Address,
@@ -227,6 +229,7 @@ impl Ouroboros {
                 ),
                 pvss_secret: pvss_secret,
                 pvss_stage: RwLock::new(PvssStage::Commit),
+                pvss_contract: pvss_contract::PvssContract::new(),
                 security_parameter_k: our_params.security_parameter_k,
 				gas_limit_bound_divisor: our_params.gas_limit_bound_divisor,
 				eip155_transition: our_params.eip155_transition,
@@ -387,7 +390,15 @@ impl Engine for Ouroboros {
 		self.step.fetch_add(1, AtomicOrdering::SeqCst);
 
         let pvss_stage = *self.pvss_stage.read();
-        if pvss_stage == PvssStage::Commit && self.after_4k_slots() {
+
+        if pvss_stage == PvssStage::Commit {
+            self.pvss_contract.broadcast_commitments_and_shares(
+                self.epoch_number(),
+                &self.pvss_secret.commitments,
+                &self.pvss_secret.shares,
+            );
+            *self.pvss_stage.write() = PvssStage::CommitBroadcast;
+        } else if pvss_stage == PvssStage::CommitBroadcast && self.after_4k_slots() {
             *self.pvss_stage.write() = PvssStage::Reveal;
         } else if pvss_stage == PvssStage::Reveal && self.first_slot_in_new_epoch() {
             self.compute_new_slot_leaders();
@@ -537,7 +548,7 @@ impl Engine for Ouroboros {
 
 	fn register_client(&self, client: Weak<Client>) {
 		*self.client.write() = Some(client.clone());
-		self.validators.register_contract(client);
+		self.pvss_contract.register_contract(client);
 	}
 
 	fn set_signer(&self, ap: Arc<AccountProvider>, address: Address, password: String) {

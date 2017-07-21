@@ -46,6 +46,9 @@ ethcore-bloom-journal = { path = "../util/bloom" }
 hardware-wallet = { path = "../hw" }
 stats = { path = "../util/stats" }
 pvss = { git = "https://github.com/integer32llc/rust-pvss.git" }
+serde = "0.9"
+serde_derive = "0.9"
+bincode = "0.7"
 
 [dependencies.hyper]
 git = "https://github.com/paritytech/hyper"

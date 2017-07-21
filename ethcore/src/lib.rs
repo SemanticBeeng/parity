@@ -109,6 +109,8 @@ extern crate hardware_wallet;
 extern crate stats;
 extern crate itertools;
 extern crate pvss;
+extern crate serde;
+extern crate bincode;
 
 #[macro_use]
 extern crate log;
@@ -118,6 +120,8 @@ extern crate ethcore_util as util;
 extern crate lazy_static;
 #[macro_use]
 extern crate ethcore_ipc as ipc;
+#[macro_use]
+extern crate serde_derive;
 
 #[cfg(feature = "jit" )]
 extern crate evmjit;

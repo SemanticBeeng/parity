@@ -1,13 +1,31 @@
+use bincode::{serialize, deserialize, Infinite};
+
 use std::sync::Weak;
 use client::{Client, BlockChainClient};
 use util::*;
 use util::cache::MemoryLruCache;
 use pvss;
 
-struct PvssInfo {
+#[derive(Deserialize, PartialEq)]
+struct PvssCommitInfo {
     commitments: Vec<pvss::simple::Commitment>,
     shares: Vec<pvss::simple::EncryptedShare>,
-    secret: Option<pvss::simple::Secret>,
+}
+
+#[derive(Serialize, Deserialize, PartialEq)]
+struct PvssRevealInfo {
+    secret: pvss::simple::Secret,
+}
+
+unsafe impl Send for PvssCommitInfo {}
+unsafe impl Sync for PvssCommitInfo {}
+
+unsafe impl Send for PvssRevealInfo {}
+unsafe impl Sync for PvssRevealInfo {}
+
+struct PvssInfo {
+    commit_info: HashMap<Address, PvssCommitInfo>,
+    reveal_info: HashMap<Address, PvssRevealInfo>,
 }
 
 impl HeapSizeOf for PvssInfo {
@@ -24,21 +42,35 @@ pub struct PvssContract {
 }
 
 impl PvssContract {
-	pub fn new(contract_address: Address) -> Self {
+	pub fn new() -> Self {
 		PvssContract {
-			address: contract_address,
+			address: Address::from_str("0000000000000000000000000000000000000005").unwrap(),
 			by_epoch: RwLock::new(MemoryLruCache::new(MEMOIZE_CAPACITY)),
 			provider: RwLock::new(None),
 		}
 	}
 
-	fn register_contract(&self, client: Weak<Client>) {
+	pub fn register_contract(&self, client: Weak<Client>) {
 		let transact = move |a, d| client
 			.upgrade()
 			.ok_or("No client!".into())
 			.and_then(|c| c.transact_contract(a, d).map_err(|e| format!("Transaction import error: {}", e)))
 			.map(|_| Default::default());
 		*self.provider.write() = Some(provider::Contract::new(self.address, transact));
+	}
+
+	pub fn broadcast_commitments_and_shares(&self, epoch_number: usize, commitments: &[pvss::simple::Commitment], shares: &[pvss::simple::EncryptedShare]) {
+		if let Some(ref provider) = *self.provider.read() {
+            let commitment_bytes: Vec<u8> = serialize(&commitments, Infinite).expect("could not serialize commitments");
+            let share_bytes: Vec<u8> = serialize(&shares, Infinite).expect("could not serialize shares");
+
+			match provider.save_commitments_and_shares(epoch_number as u64, &commitment_bytes, &share_bytes) {
+				Ok(_) => warn!(target: "engine", "Broadcast commitments and shares"),
+				Err(s) => warn!(target: "engine", "Could not broadcast commitments and shares: {}", s),
+			}
+		} else {
+			warn!(target: "engine", "Could not broadcast commitments and shares: no provider contract.")
+		}
 	}
 }
 
@@ -102,14 +134,14 @@ mod tests {
 	use spec::Spec;
 	use tests::helpers::generate_dummy_client_with_spec_and_accounts;
     use super::PvssContract;
+	use client::BlockChainClient;
 
     #[test]
     fn fetches_commitments() {
-        // Commitments is empty initially.
 		let client = generate_dummy_client_with_spec_and_accounts(Spec::new_pvss_contract, None);
-		let vc = Arc::new(PvssContract::new(Address::from_str("0000000000000000000000000000000000000005").unwrap()));
-		vc.register_contract(Arc::downgrade(&client));
-
+		client.engine().register_client(Arc::downgrade(&client));
+		client.engine().step();
+		client.engine().step();
     }
 
     #[test]
