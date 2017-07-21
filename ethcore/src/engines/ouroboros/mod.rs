@@ -261,7 +261,6 @@ impl Ouroboros {
     }
 
     fn compute_new_slot_leaders(&self) {
-        let pvss_stage = *self.pvss_stage.read();
         let step = self.step.load(AtomicOrdering::SeqCst);
         let back_2k_slots = step - 2 * self.security_parameter_k as usize;
 
@@ -399,6 +398,10 @@ impl Engine for Ouroboros {
             );
             *self.pvss_stage.write() = PvssStage::CommitBroadcast;
         } else if pvss_stage == PvssStage::CommitBroadcast && self.after_4k_slots() {
+            self.pvss_contract.broadcast_secret(
+                self.epoch_number(),
+                &self.pvss_secret.escrow.secret
+            );
             *self.pvss_stage.write() = PvssStage::Reveal;
         } else if pvss_stage == PvssStage::Reveal && self.first_slot_in_new_epoch() {
             self.compute_new_slot_leaders();

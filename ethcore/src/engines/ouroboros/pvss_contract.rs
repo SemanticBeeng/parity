@@ -3,11 +3,12 @@ use bincode::{serialize, deserialize, Infinite};
 use std::sync::Weak;
 use client::{Client, BlockChainClient};
 use util::*;
-use util::cache::MemoryLruCache;
+// TODO: cache
+// use util::cache::MemoryLruCache;
 use pvss;
 
 #[derive(Deserialize, PartialEq)]
-struct PvssCommitInfo {
+pub struct PvssCommitInfo {
     commitments: Vec<pvss::simple::Commitment>,
     shares: Vec<pvss::simple::EncryptedShare>,
 }
@@ -23,21 +24,24 @@ unsafe impl Sync for PvssCommitInfo {}
 unsafe impl Send for PvssRevealInfo {}
 unsafe impl Sync for PvssRevealInfo {}
 
-struct PvssInfo {
-    commit_info: HashMap<Address, PvssCommitInfo>,
-    reveal_info: HashMap<Address, PvssRevealInfo>,
-}
+// TODO: cache
+// struct PvssInfo {
+//     commit_info: HashMap<Address, PvssCommitInfo>,
+//     reveal_info: HashMap<Address, PvssRevealInfo>,
+// }
+//
+// impl HeapSizeOf for PvssInfo {
+//     // TODO: is this correct? Vec?
+//     fn heap_size_of_children(&self) -> usize { 0 }
+// }
 
-impl HeapSizeOf for PvssInfo {
-    // TODO: is this correct? Vec?
-	fn heap_size_of_children(&self) -> usize { 0 }
-}
-
-const MEMOIZE_CAPACITY: usize = 500;
+// TODO: cache
+// const MEMOIZE_CAPACITY: usize = 500;
 
 pub struct PvssContract {
 	pub address: Address,
-	by_epoch: RwLock<MemoryLruCache<usize, PvssInfo>>,
+    // TODO: cache
+    // by_epoch: RwLock<MemoryLruCache<usize, PvssInfo>>,
 	provider: RwLock<Option<provider::Contract>>,
 }
 
@@ -45,7 +49,8 @@ impl PvssContract {
 	pub fn new() -> Self {
 		PvssContract {
 			address: Address::from_str("0000000000000000000000000000000000000005").unwrap(),
-			by_epoch: RwLock::new(MemoryLruCache::new(MEMOIZE_CAPACITY)),
+            // TODO: cache
+            // by_epoch: RwLock::new(MemoryLruCache::new(MEMOIZE_CAPACITY)),
 			provider: RwLock::new(None),
 		}
 	}
@@ -90,6 +95,38 @@ impl PvssContract {
 			}
 		} else {
 			warn!(target: "engine", "Could not get commitments and shares: no provider contract.");
+            None
+		}
+    }
+
+	pub fn broadcast_secret(&self, epoch_number: usize, secret: &pvss::simple::Secret) {
+		if let Some(ref provider) = *self.provider.read() {
+            let secret_bytes: Vec<u8> = serialize(&secret, Infinite).expect("could not serialize secret");
+
+			match provider.save_secret(epoch_number as u64, &secret_bytes) {
+				Ok(_) => warn!(target: "engine", "Broadcast secret"),
+				Err(s) => warn!(target: "engine", "Could not broadcast secret: {}", s),
+			}
+		} else {
+			warn!(target: "engine", "Could not broadcast secret: no provider contract.")
+		}
+	}
+
+    pub fn get_secret(&self, epoch_number: usize, address: &Address) -> Option<pvss::simple::Secret> {
+		if let Some(ref provider) = *self.provider.read() {
+            match provider.get_secret(epoch_number as u64, address) {
+                Ok(secret_bytes) => {
+                    let secret: pvss::simple::Secret = deserialize(&secret_bytes).expect("could not deserialize secret");
+
+                    Some(secret)
+                },
+				Err(s) => {
+                    warn!(target: "engine", "Could not get secret: {}", s);
+                    None
+                },
+			}
+		} else {
+			warn!(target: "engine", "Could not get secret: no provider contract.");
             None
 		}
     }
@@ -171,37 +208,5 @@ mod provider {
 
     		Ok(())
     	}
-    }
-}
-
-#[cfg(test)]
-mod tests {
-	use util::*;
-	use spec::Spec;
-	use tests::helpers::generate_dummy_client_with_spec_and_accounts;
-    use super::PvssContract;
-	use client::BlockChainClient;
-
-    #[test]
-    fn fetches_commitments() {
-		let client = generate_dummy_client_with_spec_and_accounts(Spec::new_pvss_contract, None);
-		client.engine().register_client(Arc::downgrade(&client));
-		client.engine().step();
-		client.engine().step();
-    }
-
-    #[test]
-    fn fetches_reveals() {
-        // Reveals is empty initially.
-    }
-
-    #[test]
-    fn write_commit_messages_and_read_from_chain() {
-
-    }
-
-    #[test]
-    fn write_reveal_messages_and_read_from_chain() {
-
     }
 }
