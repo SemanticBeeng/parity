@@ -31,26 +31,28 @@ values might come in for different signers at different times
 - Epochs should be strictly increasing
 
 */
+pragma solidity ^0.4.6;
 
 contract PvssCertificateList {
-    struct PvssInfo {
+    struct PvssCommitInfo {
         bytes commitments;
         bytes shares;
+    }
+
+    struct PvssRevealInfo {
         bytes secret;
     }
 
-    mapping (uint64 => mapping(address => PvssInfo)) by_epoch;
-
+    mapping (uint64 => mapping(address => PvssCommitInfo)) commit_by_epoch;
+    mapping (uint64 => mapping(address => PvssRevealInfo)) reveal_by_epoch;
 
     function saveCommitmentsAndShares(
         uint64 epochIndex,
         bytes commitments,
         bytes shares) external {
 
-        bytes storage b;
-
-        by_epoch[epochIndex][msg.sender] = PvssInfo(
-            commitments, shares, b
+        commit_by_epoch[epochIndex][msg.sender] = PvssCommitInfo(
+            commitments, shares
         );
     }
 
@@ -58,7 +60,23 @@ contract PvssCertificateList {
         uint64 epochIndex,
         address sender
     ) external returns (bytes, bytes) {
-        PvssInfo pvss_info = by_epoch[epochIndex][sender];
-        return (pvss_info.commitments, pvss_info.shares);
+        PvssCommitInfo pvss_commit_info = commit_by_epoch[epochIndex][sender];
+        return (pvss_commit_info.commitments, pvss_commit_info.shares);
+    }
+
+    function saveSecret(
+        uint64 epochIndex,
+        bytes secret) external {
+        reveal_by_epoch[epochIndex][msg.sender] = PvssRevealInfo(
+            secret
+        );
+    }
+
+    function getSecret(
+        uint64 epochIndex,
+        address sender
+    ) external returns (bytes) {
+        PvssRevealInfo pvss_reveal_info = reveal_by_epoch[epochIndex][sender];
+        return pvss_reveal_info.secret;
     }
 }
