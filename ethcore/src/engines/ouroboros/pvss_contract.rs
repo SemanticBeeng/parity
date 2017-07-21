@@ -72,6 +72,27 @@ impl PvssContract {
 			warn!(target: "engine", "Could not broadcast commitments and shares: no provider contract.")
 		}
 	}
+
+    pub fn get_commitments_and_shares(&self, epoch_number: usize, address: &Address) -> Option<PvssCommitInfo> {
+		if let Some(ref provider) = *self.provider.read() {
+            match provider.get_commitments_and_shares(epoch_number as u64, address) {
+                Ok((commitment_bytes, share_bytes)) => {
+                    let commitments: Vec<pvss::simple::Commitment> = deserialize(&commitment_bytes).expect("Could not deserialize commitments");
+                    let shares: Vec<pvss::simple::EncryptedShare> = deserialize(&share_bytes).expect("Could not deserialize shares");
+                    Some(PvssCommitInfo {
+                        commitments, shares
+                    })
+                },
+				Err(s) => {
+                    warn!(target: "engine", "Could not get commitments and shares: {}", s);
+                    None
+                },
+			}
+		} else {
+			warn!(target: "engine", "Could not get commitments and shares: no provider contract.");
+            None
+		}
+    }
 }
 
 mod provider {
