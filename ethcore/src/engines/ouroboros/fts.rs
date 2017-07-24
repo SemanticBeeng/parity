@@ -18,13 +18,17 @@ pub const GENESIS_SEED: &str = "vasa opasa skovoroda Ggurda boroda provoda";
 /// weighted by the amount of stake they have.
 // TODO: take a random number generator instead of a seed:
 // <R>, mut rng: R, where R: rand::Rng
-pub fn follow_the_satoshi(
-    seed: &str,
+pub fn follow_the_satoshi<'a, I>(
+    seed: Option<I>,
     genesis_balances: &[(StakeholderId, Coin)],
     epoch_slots: u64,
-    total_coins: Coin) -> SlotLeaders {
+    total_coins: Coin) -> SlotLeaders
+where I: IntoIterator<Item=&'a u8> {
 
-    let seed_bytes: Vec<_> = seed.bytes().map(|b| b as u32).collect();
+    let seed_bytes: Vec<_> = match seed {
+        Some(seed) => seed.into_iter().map(|&b| b as u32).collect(),
+        None => GENESIS_SEED.bytes().map(|b| b as u32).collect(),
+    };
     let mut rng = rand::ChaChaRng::from_seed(&seed_bytes);
 
     assert!(total_coins != Coin::zero(), "Total amount of coin held by the validators is 0!");
@@ -61,7 +65,7 @@ pub fn follow_the_satoshi(
 
 #[cfg(test)]
 mod tests {
-    use super::{follow_the_satoshi, GENESIS_SEED};
+    use super::follow_the_satoshi;
     use engines::ouroboros::Coin; //, SlotLeaders, StakeholderId};
 	use util::*;
 
@@ -71,7 +75,9 @@ mod tests {
         let balances = vec![
             (address.clone(), Coin::from(10))
         ];
-        let result = follow_the_satoshi(GENESIS_SEED, &balances, 3, Coin::from(10));
+        let seed: Option<&[u8]> = None;
+
+        let result = follow_the_satoshi(seed, &balances, 3, Coin::from(10));
         assert_eq!(result, vec![address.clone(), address.clone(), address.clone()]);
     }
 
@@ -83,8 +89,9 @@ mod tests {
             (aaa.clone(), Coin::from(50)),
             (bbb.clone(), Coin::from(50)),
         ];
+        let seed: Option<&[u8]> = None;
 
-        let result = follow_the_satoshi(GENESIS_SEED, &balances, 10, Coin::from(100));
+        let result = follow_the_satoshi(seed, &balances, 10, Coin::from(100));
         assert_eq!(result, [bbb.clone(), aaa.clone(), aaa.clone(), bbb.clone(), aaa.clone(), bbb.clone(), bbb.clone(), aaa.clone(), bbb.clone(), bbb.clone()]);
     }
 
@@ -96,8 +103,9 @@ mod tests {
             (aaa.clone(), Coin::from(80)),
             (bbb.clone(), Coin::from(20)),
         ];
+        let seed: Option<&[u8]> = None;
 
-        let result = follow_the_satoshi(GENESIS_SEED, &balances, 10, Coin::from(100));
+        let result = follow_the_satoshi(seed, &balances, 10, Coin::from(100));
         assert_eq!(result, [bbb.clone(), aaa.clone(), aaa.clone(), aaa.clone(), aaa.clone(), aaa.clone(), bbb.clone(), aaa.clone(), bbb.clone(), bbb.clone()]);
     }
 }

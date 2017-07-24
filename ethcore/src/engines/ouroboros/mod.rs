@@ -207,6 +207,7 @@ impl Ouroboros {
         stakeholders.sort_by_key(|&(id, _)| id);
         let total_stake = stakeholders.iter().map(|&(_, amount)| amount).fold(Coin::from(0), |acc, c| acc + c.into());
         let pvss_secret = PvssSecret::new(&validators, accounts);
+        let seed: Option<&[u8]> = None;
 		let engine = Arc::new(
 			Ouroboros {
 				params: params,
@@ -222,7 +223,7 @@ impl Ouroboros {
 				builtins: builtins,
 				client: RwLock::new(None),
                 slot_leaders: fts::follow_the_satoshi(
-                    fts::GENESIS_SEED,
+                    seed,
                     &stakeholders,
                     our_params.epoch_slots,
                     total_stake,
@@ -282,8 +283,10 @@ impl Ouroboros {
 
                 let total_stake = stakeholders.iter().map(|&(_, amount)| amount).fold(Coin::from(0), |acc, c| acc + c.into());
 
+                let seed: Option<&[u8]> = None;
+
                 let slot_leaders = fts::follow_the_satoshi(
-                    fts::GENESIS_SEED,
+                    seed,
                     &stakeholders,
                     self.epoch_slots,
                     total_stake,
