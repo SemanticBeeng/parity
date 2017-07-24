@@ -264,6 +264,7 @@ impl Ouroboros {
     fn compute_new_slot_leaders(&self) {
         let step = self.step.load(AtomicOrdering::SeqCst);
         let back_2k_slots = step - 2 * self.security_parameter_k as usize;
+        let last_epoch = self.epoch_number() - 1;
 
         if let Some(ref weak) = *self.client.read() {
             if let Some(client) = weak.upgrade() {
@@ -283,10 +284,20 @@ impl Ouroboros {
 
                 let total_stake = stakeholders.iter().map(|&(_, amount)| amount).fold(Coin::from(0), |acc, c| acc + c.into());
 
-                let seed: Option<&[u8]> = None;
+                let zero = vec![0];
+                let seed: Vec<u8> = stakeholders.iter()
+                    .map(|&(address, _)| address)
+                    .fold(zero, |acc, address| {
+                        let secret = self.pvss_contract
+                            .get_secret(last_epoch, &address)
+                            .expect("could not get secret").to_bytes();
+                        acc.iter().zip(secret.iter()).map(|(a, b)| a ^ b).collect()
+                    });
+
+                println!("shared seed is {:#?}", seed);
 
                 let slot_leaders = fts::follow_the_satoshi(
-                    seed,
+                    Some(&seed),
                     &stakeholders,
                     self.epoch_slots,
                     total_stake,
