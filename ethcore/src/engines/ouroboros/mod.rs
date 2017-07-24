@@ -202,12 +202,23 @@ impl Ouroboros {
 		let initial_step = our_params.start_step.unwrap_or(0) as usize;
 
         let validators = new_validator_set(our_params.validators);
+
         let stakeholders = Ouroboros::stakeholders(&validators, accounts);
         let mut stakeholders: Vec<(StakeholderId, Coin)> = stakeholders.into_iter().collect();
         stakeholders.sort_by_key(|&(id, _)| id);
-        let total_stake = stakeholders.iter().map(|&(_, amount)| amount).fold(Coin::from(0), |acc, c| acc + c.into());
+
+        let sorted_stakeholders = stakeholders.iter().map(|&(id, _) id.clone()).collect();
+        // TODO: what is my index?
+
+        let total_stake = stakeholders.iter()
+            .map(|&(_, amount)| amount)
+            .fold(Coin::from(0), |acc, c| acc + c.into());
+
+        // TODO: pass sorted_stakeholders instead
         let pvss_secret = PvssSecret::new(&validators, accounts);
+
         let seed: Option<&[u8]> = None;
+
 		let engine = Arc::new(
 			Ouroboros {
 				params: params,
@@ -268,6 +279,7 @@ impl Ouroboros {
 
         if let Some(ref weak) = *self.client.read() {
             if let Some(client) = weak.upgrade() {
+                // TODO: save sorted_stakeholders and use that instead
                 let mut stakeholders: Vec<(StakeholderId, Coin)> = self.validators
                     .validators()
                     .into_iter()
