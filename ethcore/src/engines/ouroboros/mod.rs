@@ -126,7 +126,7 @@ pub struct Ouroboros {
 	registrar: Address,
 	builtins: BTreeMap<Address, Builtin>,
 	client: RwLock<Option<Weak<EngineClient>>>,
-    slot_leaders: SlotLeaders,
+    slot_leaders: RwLock<SlotLeaders>,
 	gas_limit_bound_divisor: U256,
 	eip155_transition: u64,
 }
@@ -222,12 +222,12 @@ impl Ouroboros {
 				registrar: our_params.registrar,
 				builtins: builtins,
 				client: RwLock::new(None),
-                slot_leaders: fts::follow_the_satoshi(
+                slot_leaders: RwLock::new(fts::follow_the_satoshi(
                     seed,
                     &stakeholders,
                     our_params.epoch_slots,
                     total_stake,
-                ),
+                )),
                 pvss_secret: pvss_secret,
                 pvss_stage: RwLock::new(PvssStage::Commit),
                 pvss_contract: pvss_contract::PvssContract::new(),
@@ -305,6 +305,8 @@ impl Ouroboros {
 
                 // placeholder
                 println!("new slot leader schedule: {:#?}", slot_leaders);
+
+                *self.slot_leaders.write() = slot_leaders;
             }
         }
     }
@@ -331,13 +333,14 @@ impl Ouroboros {
 		}
 	}
 
-	fn step_proposer(&self, step: usize) -> &Address {
-        let step = step % self.slot_leaders.len();
-		&self.slot_leaders[step]
+	fn step_proposer(&self, step: usize) -> Address {
+        let step = step % self.slot_leaders.read().len();
+        let address = (*self.slot_leaders.read())[step].clone();
+        address
 	}
 
 	fn is_step_proposer(&self, step: usize, address: &Address) -> bool {
-		self.step_proposer(step) == address
+		self.step_proposer(step) == *address
 	}
 
 	fn is_future_step(&self, step: usize) -> bool {
@@ -524,7 +527,7 @@ impl Engine for Ouroboros {
 			let correct_proposer = self.step_proposer(step);
 			if !verify_address(&correct_proposer, &proposer_signature, &header.bare_hash())? {
 				trace!(target: "engine", "verify_block_unordered: bad proposer for step: {}", step);
-				Err(EngineError::NotProposer(Mismatch { expected: *correct_proposer, found: header.author().clone() }))?
+				Err(EngineError::NotProposer(Mismatch { expected: correct_proposer, found: header.author().clone() }))?
 			}
 		}
 
