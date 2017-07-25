@@ -207,7 +207,7 @@ impl Ouroboros {
         let mut stakeholders: Vec<(StakeholderId, Coin)> = stakeholders.into_iter().collect();
         stakeholders.sort_by_key(|&(id, _)| id);
 
-        let sorted_stakeholders = stakeholders.iter().map(|&(id, _) id.clone()).collect();
+        let sorted_stakeholders: Vec<_> = stakeholders.iter().map(|&(id, _)| id.clone()).collect();
         // TODO: what is my index?
 
         let total_stake = stakeholders.iter()
@@ -296,29 +296,38 @@ impl Ouroboros {
 
                 let total_stake = stakeholders.iter().map(|&(_, amount)| amount).fold(Coin::from(0), |acc, c| acc + c.into());
 
-                let zero = vec![0];
-                let seed: Vec<u8> = stakeholders.iter()
-                    .map(|&(address, _)| address)
-                    .fold(zero, |acc, address| {
-                        let secret = self.pvss_contract
-                            .get_secret(last_epoch, &address)
-                            .expect("could not get secret").to_bytes();
-                        acc.iter().zip(secret.iter()).map(|(a, b)| a ^ b).collect()
-                    });
+                // for &(address, _) in &stakeholders {
+                //     let commit_info = self.pvss_contract
+                //         .get_commitments_and_shares(last_epoch, &address)
+                //         .expect(&format!("could not get commitments and shares for epoch {}, address {:?}", last_epoch, address));
+                //     // TODO: match up my private key with my index and the commitments from other
+                //     // nodes for me, decrypt and verify
+                // }
 
-                println!("shared seed is {:#?}", seed);
-
-                let slot_leaders = fts::follow_the_satoshi(
-                    Some(&seed),
-                    &stakeholders,
-                    self.epoch_slots,
-                    total_stake,
-                );
-
-                // placeholder
-                println!("new slot leader schedule: {:#?}", slot_leaders);
-
-                *self.slot_leaders.write() = slot_leaders;
+                // let zero = vec![0];
+                // let seed: Vec<u8> = stakeholders.iter()
+                //     .map(|&(address, _)| address)
+                //     .fold(zero, |acc, address| {
+                //         let secret = self.pvss_contract
+                //             .get_secret(last_epoch, &address)
+                //             .expect(&format!("could not get secret for epoch {}, address {:?}", last_epoch, address)).to_bytes();
+                //         acc.iter().zip(secret.iter()).map(|(a, b)| a ^ b).collect()
+                //     });
+                //
+                // println!("shared seed is {:#?}", seed);
+                //
+                // let slot_leaders = fts::follow_the_satoshi(
+                //     Some(&seed),
+                //     &stakeholders,
+                //     self.epoch_slots,
+                //     total_stake,
+                // );
+                //
+                // // placeholder
+                // println!("new slot leader schedule: {:#?}", slot_leaders);
+                //
+                // *self.slot_leaders.write() = slot_leaders;
+                // TODO: generate and save new pvss_secret
             }
         }
     }
@@ -420,22 +429,37 @@ impl Engine for Ouroboros {
         let pvss_stage = *self.pvss_stage.read();
 
         if pvss_stage == PvssStage::Commit {
+
+            println!("epoch number sending = {}", self.epoch_number());
             self.pvss_contract.broadcast_commitments_and_shares(
                 self.epoch_number(),
                 &self.pvss_secret.commitments,
                 &self.pvss_secret.shares,
             );
+
+
             *self.pvss_stage.write() = PvssStage::CommitBroadcast;
         } else if pvss_stage == PvssStage::CommitBroadcast && self.after_4k_slots() {
-            self.pvss_contract.broadcast_secret(
-                self.epoch_number(),
-                &self.pvss_secret.escrow.secret
-            );
+            // self.pvss_contract.broadcast_secret(
+            //     self.epoch_number(),
+            //     &self.pvss_secret.escrow.secret
+            // );
             *self.pvss_stage.write() = PvssStage::Reveal;
         } else if pvss_stage == PvssStage::Reveal && self.first_slot_in_new_epoch() {
             self.compute_new_slot_leaders();
             *self.pvss_stage.write() = PvssStage::Commit;
         }
+
+            let address = self.signer.address();
+
+
+            let commitment = self.pvss_contract
+                .get_commitment(0, &address)
+                .expect(&format!("could not get commitments for epoch 0, address {:?}",  address));
+            println!("got commitment: {}", commitment);
+
+
+
 
 		self.proposed.store(false, AtomicOrdering::SeqCst);
 		if let Some(ref weak) = *self.client.read() {
@@ -483,7 +507,7 @@ impl Engine for Ouroboros {
 		if self.proposed.load(AtomicOrdering::SeqCst) { return Seal::None; }
 		let header = block.header();
 		let step = self.step.load(AtomicOrdering::SeqCst);
-		if self.is_step_proposer(step, header.author()) {
+		if true { //self.is_step_proposer(step, header.author()) {
 			if let Ok(signature) = self.signer.sign(header.bare_hash()) {
 				trace!(target: "engine", "generate_seal: Issuing a block for step {}.", step);
 				self.proposed.store(true, AtomicOrdering::SeqCst);

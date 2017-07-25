@@ -232,7 +232,7 @@ function convertFunction(json, _prefs) {
 // default preferences:
 let prefs = {"_pub": true, "_": {"_client": {"string": true}, "_platform": {"string": true}}, "_sync": true};
 // default contract json ABI
-let jsonabi = [{"constant":true,"inputs":[],"name":"getValidators","outputs":[{"name":"","type":"address[]"}],"payable":false,"type":"function"}];
+let jsonabi = [{"constant":false,"inputs":[{"name":"epochIndex","type":"uint64"},{"name":"commitment","type":"uint64"}],"name":"saveCommitment","outputs":[],"payable":false,"type":"function"},{"constant":false,"inputs":[{"name":"epochIndex","type":"uint64"},{"name":"sender","type":"address"}],"name":"getCommitment","outputs":[{"name":"","type":"uint64"}],"payable":false,"type":"function"}];
 // default name
 let name = 'Contract';
 
