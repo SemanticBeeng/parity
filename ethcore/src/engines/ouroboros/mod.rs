@@ -51,9 +51,18 @@ type Stakes = HashMap<StakeholderId, Coin>;
 
 /// Which method of PVSS to use
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
-enum PvssMethod {
+pub enum PvssMethod {
     Simple,
     Scrape,
+}
+
+impl From<ethjson::spec::PvssMethodParam> for PvssMethod {
+	fn from(p: ethjson::spec::PvssMethodParam) -> Self {
+        match p {
+            ethjson::spec::PvssMethodParam::Simple => PvssMethod::Simple,
+            ethjson::spec::PvssMethodParam::Scrape => PvssMethod::Scrape,
+        }
+    }
 }
 
 /// Stage in the pvss process. Intentionally not implementing the recover
@@ -87,6 +96,8 @@ pub struct OuroborosParams {
     pub epoch_slots: u64,
 	/// Time that the chain began
 	pub network_wide_start_time: Option<u64>,
+    /// Whether to use pvss::simple or pvss::scrape
+    pub pvss_method: PvssMethod,
 	/// Namereg contract address.
 	pub registrar: Address,
 	/// Starting step, only used for testing.
@@ -107,6 +118,7 @@ impl From<ethjson::spec::OuroborosParams> for OuroborosParams {
             slot_security_parameter: 2 * p.security_parameter_k,
             epoch_slots: 10 * p.security_parameter_k,
             network_wide_start_time: p.network_wide_start_time.map(Into::into),
+            pvss_method: p.pvss_method.into(),
 			registrar: Address::new(),
 			start_step: p.start_step.map(Into::into),
 			gas_limit_bound_divisor: p.gas_limit_bound_divisor.into(),
@@ -128,6 +140,7 @@ pub struct Ouroboros {
     pvss_secret: PvssSecret,
     pvss_stage: RwLock<PvssStage>,
     pvss_contract: pvss_contract::PvssContract,
+    pvss_method: PvssMethod,
     security_parameter_k: u64,
 	transition_service: IoService<()>,
 	registrar: Address,
@@ -253,6 +266,7 @@ impl Ouroboros {
                 pvss_secret: pvss_secret,
                 pvss_stage: RwLock::new(PvssStage::Commit),
                 pvss_contract: pvss_contract::PvssContract::new(),
+                pvss_method: our_params.pvss_method,
                 security_parameter_k: our_params.security_parameter_k,
 				gas_limit_bound_divisor: our_params.gas_limit_bound_divisor,
 				eip155_transition: our_params.eip155_transition,
