@@ -431,19 +431,23 @@ impl Engine for Ouroboros {
         if pvss_stage == PvssStage::Commit {
 
             println!("epoch number sending = {}", self.epoch_number());
-            self.pvss_contract.broadcast_commitments_and_shares(
+            // self.pvss_contract.broadcast_commitments_and_shares(
+            //     self.epoch_number(),
+            //     &self.pvss_secret.commitments,
+            //     &self.pvss_secret.shares,
+            // );
+            self.pvss_contract.broadcast_secret(
                 self.epoch_number(),
-                &self.pvss_secret.commitments,
-                &self.pvss_secret.shares,
+                &self.pvss_secret.escrow.secret
             );
 
 
             *self.pvss_stage.write() = PvssStage::CommitBroadcast;
         } else if pvss_stage == PvssStage::CommitBroadcast && self.after_4k_slots() {
-            // self.pvss_contract.broadcast_secret(
-            //     self.epoch_number(),
-            //     &self.pvss_secret.escrow.secret
-            // );
+            self.pvss_contract.broadcast_secret(
+                self.epoch_number(),
+                &self.pvss_secret.escrow.secret
+            );
             *self.pvss_stage.write() = PvssStage::Reveal;
         } else if pvss_stage == PvssStage::Reveal && self.first_slot_in_new_epoch() {
             self.compute_new_slot_leaders();
@@ -453,13 +457,22 @@ impl Engine for Ouroboros {
             let address = self.signer.address();
 
 
-            let (commitments, shares) = self.pvss_contract
-                .get_commitments_and_shares(0, &address)
-                .expect(&format!("could not get commitments for epoch 0, address {:?}",  address));
+            // let (commitments, shares) = self.pvss_contract
+            //     .get_commitments_and_shares(0, &address)
+            //     .expect(&format!("could not get commitments and shares for epoch 0, address {:?}",  address));
+            //
+            // assert!(commitments == self.pvss_secret.commitments);
+            // assert!(shares == self.pvss_secret.shares);
+            //
+            // println!("commitments and shares were equal!");
 
-            assert!(commitments == self.pvss_secret.commitments);
-            assert!(shares == self.pvss_secret.shares);
+            let secret = self.pvss_contract
+                .get_secret(0, &address)
+                .expect(&format!("could not get secret for epoch 0, address {:?}",  address));
 
+            assert!(secret == self.pvss_secret.escrow.secret);
+
+            println!("secrets were equal!");
 
 		self.proposed.store(false, AtomicOrdering::SeqCst);
 		if let Some(ref weak) = *self.client.read() {
