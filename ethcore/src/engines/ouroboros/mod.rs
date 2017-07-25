@@ -49,6 +49,13 @@ type StakeholderId = Address;
 type SlotLeaders = Vec<StakeholderId>;
 type Stakes = HashMap<StakeholderId, Coin>;
 
+/// Which method of PVSS to use
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
+enum PvssMethod {
+    Simple,
+    Scrape,
+}
+
 /// Stage in the pvss process. Intentionally not implementing the recover
 /// phase; for the purposes of performance testing, we are assuming all
 /// nodes are honest and available, which cannot be assumed in a production

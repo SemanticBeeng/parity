@@ -19,6 +19,20 @@
 use uint::Uint;
 use super::ValidatorSet;
 
+/// Which method of PVSS to use
+#[derive(Debug, PartialEq, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum PvssMethodParam {
+    Simple,
+    Scrape,
+}
+
+impl Default for PvssMethodParam {
+    fn default() -> Self {
+        PvssMethodParam::Scrape
+    }
+}
+
 /// Ouroboros params deserialization.
 #[derive(Debug, PartialEq, Deserialize)]
 pub struct OuroborosParams {
@@ -36,6 +50,9 @@ pub struct OuroborosParams {
     /// The mutually agreed-on time of when the entire chain came into being.
     #[serde(rename="networkWideStartTime")]
     pub network_wide_start_time: Option<Uint>,
+    /// Whether to use pvss::simple or pvss::scrape
+    #[serde(rename="pvssMethod", default)]
+    pub pvss_method: PvssMethodParam,
 	/// Starting step. Determined automatically if not specified.
 	/// To be used for testing only, similarly to how Authority Round is tested.
 	#[serde(rename="startStep")]
@@ -60,6 +77,7 @@ pub struct Ouroboros {
 mod tests {
 	use serde_json;
 	use spec::ouroboros::Ouroboros;
+    use spec::ouroboros::PvssMethodParam;
 
 	#[test]
 	fn ouroboros_deserialization() {
@@ -76,6 +94,47 @@ mod tests {
 			}
 		}"#;
 
-		let _deserialized: Ouroboros = serde_json::from_str(s).unwrap();
+		let deserialized: Ouroboros = serde_json::from_str(s).unwrap();
+        assert_eq!(deserialized.params.pvss_method, PvssMethodParam::Scrape);
+	}
+
+	#[test]
+	fn ouroboros_deserialization_with_pvss_method() {
+		let s = r#"{
+			"params": {
+				"gasLimitBoundDivisor": "0x0400",
+				"stepDuration": "0x02",
+                "networkWideStartTime": "0x596d1d34",
+                "pvssMethod": "simple",
+				"validators": {
+					"list" : ["0xc6d9d2cd449a754c494264e1809c50e34d64562b"]
+				},
+                "securityParameterK": 60,
+				"eip155Transition": "0x42"
+			}
+		}"#;
+
+		let deserialized: Ouroboros = serde_json::from_str(s).unwrap();
+        assert_eq!(deserialized.params.pvss_method, PvssMethodParam::Simple);
+	}
+
+	#[test]
+	fn ouroboros_deserialization_with_invalid_pvss_method() {
+		let s = r#"{
+			"params": {
+				"gasLimitBoundDivisor": "0x0400",
+				"stepDuration": "0x02",
+                "networkWideStartTime": "0x596d1d34",
+                "pvssMethod": "invalid",
+				"validators": {
+					"list" : ["0xc6d9d2cd449a754c494264e1809c50e34d64562b"]
+				},
+                "securityParameterK": 60,
+				"eip155Transition": "0x42"
+			}
+		}"#;
+
+		let deserialized: Result<Ouroboros, _> = serde_json::from_str(s);
+        assert!(deserialized.is_err());
 	}
 }

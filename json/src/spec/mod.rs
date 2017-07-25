@@ -45,5 +45,5 @@ pub use self::validator_set::ValidatorSet;
 pub use self::instant_seal::{InstantSeal, InstantSealParams};
 pub use self::basic_authority::{BasicAuthority, BasicAuthorityParams};
 pub use self::authority_round::{AuthorityRound, AuthorityRoundParams};
-pub use self::ouroboros::{Ouroboros, OuroborosParams};
+pub use self::ouroboros::{Ouroboros, OuroborosParams, PvssMethodParam};
 pub use self::tendermint::{Tendermint, TendermintParams};
