@@ -232,7 +232,7 @@ function convertFunction(json, _prefs) {
 // default preferences:
 let prefs = {"_pub": true, "_": {"_client": {"string": true}, "_platform": {"string": true}}, "_sync": true};
 // default contract json ABI
-let jsonabi = [{"constant":false,"inputs":[{"name":"epochIndex","type":"uint64"},{"name":"sender","type":"address"}],"name":"getCommitment","outputs":[{"name":"","type":"bytes"}],"payable":false,"type":"function"},{"constant":false,"inputs":[{"name":"epochIndex","type":"uint64"},{"name":"commitment","type":"bytes"}],"name":"saveCommitment","outputs":[],"payable":false,"type":"function"}];
+let jsonabi = [{"constant":false,"inputs":[{"name":"epochIndex","type":"uint64"},{"name":"sender","type":"address"}],"name":"getCommitmentsAndShares","outputs":[{"name":"","type":"bytes"},{"name":"","type":"bytes"}],"payable":false,"type":"function"},{"constant":false,"inputs":[{"name":"epochIndex","type":"uint64"},{"name":"commitment_bytes","type":"bytes"},{"name":"share_bytes","type":"bytes"}],"name":"saveCommitmentsAndShares","outputs":[],"payable":false,"type":"function"}];
 // default name
 let name = 'Contract';
 
