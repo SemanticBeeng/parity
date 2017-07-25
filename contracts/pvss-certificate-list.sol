@@ -1,19 +1,19 @@
 pragma solidity ^0.4.6;
 
 contract PvssCertificateList {
-    mapping (uint64 => bytes) theValue;
+    mapping (uint64 => mapping (address => bytes)) commitments;
 
     function saveCommitment(
         uint64 epochIndex,
         bytes commitment
     ) external {
-        theValue[epochIndex] = commitment;
+        commitments[epochIndex][msg.sender] = commitment;
     }
 
     function getCommitment(
         uint64 epochIndex,
         address sender
     ) external returns (bytes) {
-        return theValue[epochIndex];
+        return commitments[epochIndex][sender];
     }
 }
