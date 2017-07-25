@@ -456,7 +456,7 @@ impl Engine for Ouroboros {
             let commitment = self.pvss_contract
                 .get_commitment(0, &address)
                 .expect(&format!("could not get commitments for epoch 0, address {:?}",  address));
-            println!("got commitment: {}", commitment);
+            println!("got commitment: {:?}", commitment);
 
 
 
