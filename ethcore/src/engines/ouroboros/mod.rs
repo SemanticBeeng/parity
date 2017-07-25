@@ -453,12 +453,11 @@ impl Engine for Ouroboros {
             let address = self.signer.address();
 
 
-            let commitment = self.pvss_contract
+            let commitments = self.pvss_contract
                 .get_commitment(0, &address)
                 .expect(&format!("could not get commitments for epoch 0, address {:?}",  address));
-            println!("got commitment: {:?}", commitment);
 
-
+            assert!(commitments == self.pvss_secret.commitments);
 
 
 		self.proposed.store(false, AtomicOrdering::SeqCst);

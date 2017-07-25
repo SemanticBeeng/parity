@@ -83,12 +83,12 @@ impl PvssContract {
 
 	pub fn broadcast_commitments_and_shares(&self, epoch_number: usize, commitments: &[pvss::simple::Commitment], _shares: &[pvss::simple::EncryptedShare]) {
         println!("in broadcast");
-        let first_commitment_bytes: Vec<u8> = serialize(&commitments[0], Infinite).expect("could not serialize commitment");
+        let commitment_bytes: Vec<u8> = serialize(&commitments, Infinite).expect("could not serialize commitment");
 
-        println!("first commitment bytes = {:?}", first_commitment_bytes);
+        println!("commitment bytes = {:?}", commitment_bytes);
 		if let Some(ref provider) = *self.write_provider.read() {
 
-			match provider.save_commitment(epoch_number as u64, &first_commitment_bytes) {
+			match provider.save_commitment(epoch_number as u64, &commitment_bytes) {
 				Ok(_) => println!("a-ok"),
 				Err(s) => warn!(target: "engine", "Could not broadcast commitments and shares: {}", s),
 			}
@@ -119,13 +119,13 @@ impl PvssContract {
         //     }
 
 
-        pub fn get_commitment(&self, epoch_number: usize, address: &Address) -> Option<Vec<u8>> {
+        pub fn get_commitment(&self, epoch_number: usize, address: &Address) -> Option<Vec<pvss::simple::Commitment>> {
     		if let Some(ref provider) = *self.read_provider.read() {
 
                 match provider.get_commitment(epoch_number as u64, address) {
-                    Ok(commitment) => {
-                        println!("got commitment: {:?}", commitment);
-                        Some(commitment)
+                    Ok(commitment_bytes) => {
+                        let commitments: Vec<pvss::simple::Commitment> = deserialize(&commitment_bytes).expect("Could not deserialize commitments");
+                        Some(commitments)
                     },
     				Err(s) => {
                         println!("Could not get commitment: {}", s);
