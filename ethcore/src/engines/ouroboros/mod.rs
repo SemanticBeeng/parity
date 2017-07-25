@@ -38,10 +38,9 @@ use client::{Client, EngineClient, BlockId};
 use super::signer::EngineSigner;
 use super::validator_set::{ValidatorSet, new_validator_set};
 
-use pvss;
-
 mod fts;
 mod pvss_contract;
+mod pvss_secret;
 
 // Type aliases to match cardano types
 type Coin = U256;
@@ -137,7 +136,7 @@ pub struct Ouroboros {
 	proposed: AtomicBool,
 	signer: EngineSigner,
 	validators: Box<ValidatorSet>,
-    pvss_secret: PvssSecret,
+    pvss_secret: pvss_secret::PvssSecret,
     pvss_stage: RwLock<PvssStage>,
     pvss_contract: pvss_contract::PvssContract,
     pvss_method: PvssMethod,
@@ -169,46 +168,6 @@ impl AsMillis for Duration {
 	}
 }
 
-struct PvssSecret {
-    escrow: pvss::simple::Escrow,
-    commitments: Vec<pvss::simple::Commitment>,
-    shares: Vec<pvss::simple::EncryptedShare>,
-}
-
-unsafe impl Send for PvssSecret {}
-unsafe impl Sync for PvssSecret {}
-
-impl PvssSecret {
-    pub fn new(validator_set: &Box<ValidatorSet>, accounts: &ethjson::spec::State) -> Self {
-        // Calculate the threshold in the same way as cardano does https://github.com/input-output-hk/cardano-sl/blob/9d527fd/godtossing/Pos/Ssc/GodTossing/Functions.hs#L138-L141
-        let num_validators = validator_set.validators().len();
-        let threshold = num_validators / 2 + num_validators % 2;
-
-        let escrow = pvss::simple::escrow(threshold as u32);
-        let commitments = pvss::simple::commitments(&escrow);
-
-        let public_keys: Vec<_> = validator_set.validators()
-            .iter()
-            .flat_map(|&v| {
-                accounts.0.get(&From::from(v)).map(|account| {
-                    account.pvss.as_ref().expect(
-                        &format!("could not find pvss for {}", v)
-                    ).public_key.as_ref().expect(
-                        &format!("could not find public key for {}", v)
-                    )
-                })
-            }).collect();
-
-        let shares = pvss::simple::create_shares(&escrow, public_keys);
-
-        PvssSecret {
-            escrow,
-            commitments,
-            shares,
-        }
-    }
-}
-
 impl Ouroboros {
 	/// Create a new instance of the Ouroboros engine.
 	pub fn new(params: CommonParams, our_params: OuroborosParams, builtins: BTreeMap<Address, Builtin>, accounts: &ethjson::spec::State) -> Result<Arc<Self>, Error> {
@@ -235,7 +194,7 @@ impl Ouroboros {
             .fold(Coin::from(0), |acc, c| acc + c.into());
 
         // TODO: pass sorted_stakeholders instead
-        let pvss_secret = PvssSecret::new(&validators, accounts);
+        let pvss_secret = pvss_secret::PvssSecret::new(&validators, accounts);
 
         let seed: Option<&[u8]> = None;
 
@@ -457,8 +416,8 @@ impl Engine for Ouroboros {
 
             self.pvss_contract.broadcast_commitments_and_shares(
                 self.epoch_number(),
-                &self.pvss_secret.commitments,
-                &self.pvss_secret.shares,
+                &self.pvss_secret.commitments(),
+                &self.pvss_secret.shares(),
             );
 
             *self.pvss_stage.write() = PvssStage::CommitBroadcast;
@@ -467,7 +426,7 @@ impl Engine for Ouroboros {
 
             self.pvss_contract.broadcast_secret(
                 self.epoch_number(),
-                &self.pvss_secret.escrow.secret
+                &self.pvss_secret.escrow().secret
             );
 
             *self.pvss_stage.write() = PvssStage::Reveal;
