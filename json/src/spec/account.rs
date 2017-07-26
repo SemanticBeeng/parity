@@ -16,13 +16,11 @@
 
 //! Spec account deserialization.
 
-use std::fmt;
 use std::collections::BTreeMap;
 use uint::Uint;
 use bytes::Bytes;
 use spec::builtin::Builtin;
 
-use pvss;
 use serde::de::{Deserializer, Error};
 use serde::Deserialize;
 use rustc_serialize::hex::FromHex;
@@ -46,8 +44,8 @@ pub struct Account {
     pub pvss: Option<Pvss>,
 }
 
-#[derive(Debug)]
-struct HexBytes(Vec<u8>);
+#[derive(Debug, PartialEq)]
+pub struct HexBytes(pub Vec<u8>);
 
 impl Deserialize for HexBytes {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -65,36 +63,10 @@ impl Deserialize for HexBytes {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug, Deserialize)]
 pub struct Pvss {
-    pub public_key: Option<pvss::crypto::PublicKey>,
-    pub private_key: Option<pvss::crypto::PrivateKey>,
-}
-
-impl Deserialize for Pvss {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer
-    {
-        #[derive(Debug, Deserialize)]
-        struct Inner {
-            public_key: Option<HexBytes>,
-            private_key: Option<HexBytes>,
-        }
-
-        let val = Inner::deserialize(deserializer)?;
-
-        let public_key = val.public_key.map(|bytes| pvss::crypto::PublicKey::from_bytes(&bytes.0));
-        let private_key = val.private_key.map(|bytes| pvss::crypto::PrivateKey::from_bytes(&bytes.0));
-
-        Ok(Pvss { public_key, private_key })
-    }
-}
-
-impl fmt::Debug for Pvss {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        "Pvss {{ hidden }}".fmt(f)
-    }
+    pub public_key: Option<HexBytes>,
+    pub private_key: Option<HexBytes>,
 }
 
 impl Account {

@@ -214,8 +214,18 @@ impl Ouroboros {
             .map(|&(_, amount)| amount)
             .fold(Coin::from(0), |acc, c| acc + c.into());
 
+        let public_keys: Vec<Vec<u8>> = sorted_stakeholders.iter().map(|&id| {
+            accounts.0.get(&From::from(id)).expect(
+                    &format!("could not find account for {}", id)
+                ).pvss.as_ref().expect(
+                    &format!("could not find pvss for {}", id)
+                ).public_key.as_ref().expect(
+                    &format!("could not find public key for {}", id)
+                ).0.clone()
+        }).collect();
+
         // TODO: pass sorted_stakeholders instead
-        let pvss_secret = pvss_secret::PvssSecret::new(&validators, accounts);
+        let pvss_secret = pvss_secret::PvssSecret::new(&validators, &public_keys[..]);
 
         let seed: Option<&[u8]> = None;
 
