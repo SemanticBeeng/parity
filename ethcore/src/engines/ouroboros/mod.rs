@@ -38,6 +38,9 @@ use client::{Client, EngineClient, BlockId};
 use super::signer::EngineSigner;
 use super::validator_set::{ValidatorSet, new_validator_set};
 
+use pvss;
+use bincode::{serialize, deserialize, Infinite};
+
 mod fts;
 mod pvss_contract;
 mod pvss_secret;
@@ -299,9 +302,14 @@ impl Ouroboros {
                 let total_stake = stakeholders.iter().map(|&(_, amount)| amount).fold(Coin::from(0), |acc, c| acc + c.into());
 
                 for &(address, _) in &stakeholders {
-                    let commit_info = self.pvss_contract
+
+                    let (commitment_bytes, share_bytes) = self.pvss_contract
                         .get_commitments_and_shares(last_epoch, &address)
                         .expect(&format!("could not get commitments and shares for epoch {}, address {:?}", last_epoch, address));
+
+                    let commitments: Vec<pvss::simple::Commitment> = deserialize(&commitment_bytes).expect("Could not deserialize commitments");
+                    let shares: Vec<pvss::simple::EncryptedShare> = deserialize(&share_bytes).expect("Could not deserialize shares");
+
                     // TODO: match up my private key with my index and the commitments from other
                     // nodes for me, decrypt and verify
                 }
@@ -310,10 +318,11 @@ impl Ouroboros {
                 let seed: Vec<u8> = stakeholders.iter()
                     .map(|&(address, _)| address)
                     .fold(zero, |acc, address| {
-                        let secret = self.pvss_contract
+                        let secret_bytes = self.pvss_contract
                             .get_secret(last_epoch, &address)
-                            .expect(&format!("could not get secret for epoch {}, address {:?}", last_epoch, address)).to_bytes();
-                        acc.iter().zip(secret.iter()).map(|(a, b)| a ^ b).collect()
+                            .expect(&format!("could not get secret for epoch {}, address {:?}", last_epoch, address));
+
+                        acc.iter().zip(secret_bytes.iter()).map(|(a, b)| a ^ b).collect()
                     });
 
                 println!("shared seed is {:#?}", seed);
@@ -431,19 +440,23 @@ impl Engine for Ouroboros {
 
         if pvss_stage == PvssStage::Commit {
 
+            let commitment_bytes: Vec<u8> = serialize(&self.pvss_secret.commitments(), Infinite).expect("could not serialize commitments");
+            let share_bytes: Vec<u8> = serialize(&self.pvss_secret.shares(), Infinite).expect("could not serialize shares");
+
             self.pvss_contract.broadcast_commitments_and_shares(
                 self.epoch_number(),
-                &self.pvss_secret.commitments(),
-                &self.pvss_secret.shares(),
+                &commitment_bytes,
+                &share_bytes,
             );
 
             *self.pvss_stage.write() = PvssStage::CommitBroadcast;
 
         } else if pvss_stage == PvssStage::CommitBroadcast && self.after_4k_slots() {
+            let secret_bytes: Vec<u8> = serialize(&self.pvss_secret.escrow().secret, Infinite).expect("could not serialize secret");
 
             self.pvss_contract.broadcast_secret(
                 self.epoch_number(),
-                &self.pvss_secret.escrow().secret
+                &secret_bytes
             );
 
             *self.pvss_stage.write() = PvssStage::Reveal;

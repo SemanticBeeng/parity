@@ -1,42 +1,8 @@
-use bincode::{serialize, deserialize, Infinite};
-
 use std::sync::Weak;
 use client::{Client, BlockChainClient};
 use util::*;
 // TODO: cache
 // use util::cache::MemoryLruCache;
-use pvss;
-
-#[derive(Deserialize, PartialEq)]
-pub struct PvssCommitInfo {
-    pub commitments: Vec<pvss::simple::Commitment>,
-    pub shares: Vec<pvss::simple::EncryptedShare>,
-}
-
-#[derive(Serialize, Deserialize, PartialEq)]
-struct PvssRevealInfo {
-    secret: pvss::simple::Secret,
-}
-
-unsafe impl Send for PvssCommitInfo {}
-unsafe impl Sync for PvssCommitInfo {}
-
-unsafe impl Send for PvssRevealInfo {}
-unsafe impl Sync for PvssRevealInfo {}
-
-// TODO: cache
-// struct PvssInfo {
-//     commit_info: HashMap<Address, PvssCommitInfo>,
-//     reveal_info: HashMap<Address, PvssRevealInfo>,
-// }
-//
-// impl HeapSizeOf for PvssInfo {
-//     // TODO: is this correct? Vec?
-//     fn heap_size_of_children(&self) -> usize { 0 }
-// }
-
-// TODO: cache
-// const MEMOIZE_CAPACITY: usize = 500;
 
 pub struct PvssContract {
 	pub address: Address,
@@ -50,8 +16,6 @@ impl PvssContract {
 	pub fn new() -> Self {
 		PvssContract {
 			address: Address::from_str("0000000000000000000000000000000000000005").unwrap(),
-            // TODO: cache
-            // by_epoch: RwLock::new(MemoryLruCache::new(MEMOIZE_CAPACITY)),
 			read_provider: RwLock::new(None),
             write_provider: RwLock::new(None),
 		}
@@ -81,16 +45,10 @@ impl PvssContract {
 	    }));
     }
 
-	pub fn broadcast_commitments_and_shares(&self, epoch_number: usize, commitments: &[pvss::simple::Commitment], shares: &[pvss::simple::EncryptedShare]) {
-        println!("in broadcast");
-        let commitment_bytes: Vec<u8> = serialize(&commitments, Infinite).expect("could not serialize commitments");
-        let share_bytes: Vec<u8> = serialize(&shares, Infinite).expect("could not serialize shares");
-
-        println!("commitment bytes = {:?}", commitment_bytes);
+	pub fn broadcast_commitments_and_shares(&self, epoch_number: usize, commitment_bytes: &[u8], share_bytes: &[u8]) {
 		if let Some(ref provider) = *self.write_provider.read() {
-
 			match provider.save_commitments_and_shares(epoch_number as u64, &commitment_bytes, &share_bytes) {
-				Ok(_) => println!("a-ok"),
+				Ok(_) => warn!(target: "engine", "Broadcast commitments and shares"),
 				Err(s) => warn!(target: "engine", "Could not broadcast commitments and shares: {}", s),
 			}
 		} else {
@@ -98,19 +56,15 @@ impl PvssContract {
 		}
 	}
 
-
-    pub fn get_commitments_and_shares(&self, epoch_number: usize, address: &Address) -> Option<(Vec<pvss::simple::Commitment>, Vec<pvss::simple::EncryptedShare>)> {
+    pub fn get_commitments_and_shares(&self, epoch_number: usize, address: &Address) -> Option<(Vec<u8>, Vec<u8>)> {
 		if let Some(ref provider) = *self.read_provider.read() {
 
             match provider.get_commitments_and_shares(epoch_number as u64, address) {
                 Ok((commitment_bytes, share_bytes)) => {
-                    println!("commitment bytes out = {:?}", commitment_bytes);
-                    let commitments: Vec<pvss::simple::Commitment> = deserialize(&commitment_bytes).expect("Could not deserialize commitments");
-                    let shares: Vec<pvss::simple::EncryptedShare> = deserialize(&share_bytes).expect("Could not deserialize shares");
-                    Some((commitments, shares))
+                    Some((commitment_bytes, share_bytes))
                 },
 				Err(s) => {
-                    println!("Could not get commitments and shares: {}", s);
+                    warn!(target: "engine", "Could not get commitments and shares: {}", s);
                     None
                 },
 			}
@@ -120,15 +74,11 @@ impl PvssContract {
 		}
     }
 
-	pub fn broadcast_secret(&self, epoch_number: usize, secret: &pvss::simple::Secret) {
-        let secret_bytes: Vec<u8> = serialize(&secret, Infinite).expect("could not serialize secret");
-
-        println!("secret_bytes in = {:?}", secret_bytes);
-
+	pub fn broadcast_secret(&self, epoch_number: usize, secret_bytes: &[u8]) {
 		if let Some(ref provider) = *self.write_provider.read() {
 
 			match provider.save_secret(epoch_number as u64, &secret_bytes) {
-				Ok(_) => println!("a-ok"),
+				Ok(_) => warn!(target: "engine", "Broadcast secret"),
 				Err(s) => warn!(target: "engine", "Could not broadcast secret: {}", s),
 			}
 		} else {
@@ -136,17 +86,12 @@ impl PvssContract {
 		}
 	}
 
-    pub fn get_secret(&self, epoch_number: usize, address: &Address) -> Option<pvss::simple::Secret> {
+    pub fn get_secret(&self, epoch_number: usize, address: &Address) -> Option<Vec<u8>> {
 		if let Some(ref provider) = *self.read_provider.read() {
-
             match provider.get_secret(epoch_number as u64, address) {
-                Ok(secret_bytes) => {
-                    println!("secret_bytes out = {:?}", secret_bytes);
-                    let secret: pvss::simple::Secret = deserialize(&secret_bytes).expect("Could not deserialize secret");
-                    Some(secret)
-                },
+                Ok(secret_bytes) => Some(secret_bytes),
 				Err(s) => {
-                    println!("Could not get secret: {}", s);
+                    warn!(target: "engine", "Could not get secret: {}", s);
                     None
                 },
 			}
@@ -233,37 +178,5 @@ mod provider {
 
     		Ok(())
     	}
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use util::*;
-    use spec::Spec;
-    use tests::helpers::generate_dummy_client_with_spec_and_accounts;
-    use super::PvssContract;
-    use client::BlockChainClient;
-	use account_provider::AccountProvider;
-	use ethkey::Secret;
-    use miner::MinerService;
-
-    #[test]
-    fn fetches_commitments() {
-        ::env_logger::init();
-
-        let client = generate_dummy_client_with_spec_and_accounts(Spec::new_pvss_contract, None);
-
-		let tap = Arc::new(AccountProvider::transient_provider());
-		let addr1 = tap.insert_account(Secret::from_slice(&"1".sha3()).unwrap(), "1").unwrap();
-
-
-        client.engine().register_client(Arc::downgrade(&client));
-		// Make sure reporting can be done.
-		client.miner().set_gas_floor_target(1_000_000.into());
-
-		client.engine().set_signer(tap.clone(), addr1, "1".into());
-
-        client.engine().step();
-        client.engine().step();
     }
 }
