@@ -139,10 +139,11 @@ pub struct Ouroboros {
 	proposed: AtomicBool,
 	signer: EngineSigner,
 	validators: Box<ValidatorSet>,
-    pvss_secret: pvss_secret::PvssSecret,
+    pvss_secret: RwLock<pvss_secret::PvssSecret>,
     pvss_stage: RwLock<PvssStage>,
     pvss_contract: pvss_contract::PvssContract,
     pvss_method: PvssMethod,
+    public_keys: Vec<Vec<u8>>,
     security_parameter_k: u64,
 	transition_service: IoService<()>,
 	registrar: Address,
@@ -224,7 +225,7 @@ impl Ouroboros {
                 ).0.clone()
         }).collect();
 
-        let pvss_secret = pvss_secret::PvssSecret::new(&public_keys[..]);
+        let pvss_secret = pvss_secret::PvssSecret::new(&public_keys);
 
         let seed: Option<&[u8]> = None;
 
@@ -252,10 +253,11 @@ impl Ouroboros {
 				builtins: builtins,
 				client: RwLock::new(None),
                 slot_leaders: RwLock::new(slot_leaders),
-                pvss_secret: pvss_secret,
+                pvss_secret: RwLock::new(pvss_secret),
                 pvss_stage: RwLock::new(PvssStage::Commit),
                 pvss_contract: pvss_contract::PvssContract::new(),
                 pvss_method: our_params.pvss_method,
+                public_keys: public_keys,
                 security_parameter_k: our_params.security_parameter_k,
 				gas_limit_bound_divisor: our_params.gas_limit_bound_divisor,
 				eip155_transition: our_params.eip155_transition,
@@ -346,7 +348,7 @@ impl Ouroboros {
                 debug_slot_leaders(&stakeholders, total_stake, &slot_leaders);
 
                 *self.slot_leaders.write() = slot_leaders;
-                // TODO: generate and save new pvss_secret
+                *self.pvss_secret.write() = pvss_secret::PvssSecret::new(&self.public_keys);
             }
         }
     }
@@ -448,9 +450,10 @@ impl Engine for Ouroboros {
         let pvss_stage = *self.pvss_stage.read();
 
         if pvss_stage == PvssStage::Commit {
+            let pvss_secret = self.pvss_secret.read();
 
-            let commitment_bytes: Vec<u8> = serialize(&self.pvss_secret.commitments(), Infinite).expect("could not serialize commitments");
-            let share_bytes: Vec<u8> = serialize(&self.pvss_secret.shares(), Infinite).expect("could not serialize shares");
+            let commitment_bytes: Vec<u8> = serialize(&pvss_secret.commitments(), Infinite).expect("could not serialize commitments");
+            let share_bytes: Vec<u8> = serialize(&pvss_secret.shares(), Infinite).expect("could not serialize shares");
 
             self.pvss_contract.broadcast_commitments_and_shares(
                 self.epoch_number(),
@@ -461,7 +464,9 @@ impl Engine for Ouroboros {
             *self.pvss_stage.write() = PvssStage::CommitBroadcast;
 
         } else if pvss_stage == PvssStage::CommitBroadcast && self.after_4k_slots() {
-            let secret_bytes: Vec<u8> = serialize(&self.pvss_secret.escrow().secret, Infinite).expect("could not serialize secret");
+            let pvss_secret = self.pvss_secret.read();
+
+            let secret_bytes: Vec<u8> = serialize(&pvss_secret.escrow().secret, Infinite).expect("could not serialize secret");
 
             self.pvss_contract.broadcast_secret(
                 self.epoch_number(),
