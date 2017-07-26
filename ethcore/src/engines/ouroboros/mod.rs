@@ -168,6 +168,24 @@ impl AsMillis for Duration {
 	}
 }
 
+fn debug_slot_leaders(stakeholders: &[(StakeholderId, Coin)], total_stake: Coin, slot_leaders: &SlotLeaders) {
+    println!("\ndistribution of stake:");
+    for &(id, coin) in stakeholders {
+        println!("{}: {} / {} ({}%)", id, coin, total_stake, coin.low_u64() as f64 / total_stake.low_u64() as f64 * 100.0);
+    }
+    println!("\ndistribution of slots:");
+    let mut slot_counts = HashMap::new();
+    for &leader in slot_leaders {
+        *slot_counts.entry(leader).or_insert(0) += 1;
+    }
+    let num_slots = slot_leaders.len();
+    for &(id, _) in stakeholders {
+        let v = slot_counts.get(&id).unwrap();
+        println!("{}: {} ({}%)", id, v, *v as f64 / num_slots as f64 * 100.0);
+    }
+    println!("\ninitial slot leader schedule: {:#?}", slot_leaders);
+}
+
 impl Ouroboros {
 	/// Create a new instance of the Ouroboros engine.
 	pub fn new(params: CommonParams, our_params: OuroborosParams, builtins: BTreeMap<Address, Builtin>, accounts: &ethjson::spec::State) -> Result<Arc<Self>, Error> {
@@ -205,7 +223,7 @@ impl Ouroboros {
             total_stake,
         );
 
-        println!("initial slot leader schedule: {:#?}", slot_leaders);
+        debug_slot_leaders(&stakeholders, total_stake, &slot_leaders);
 
 		let engine = Arc::new(
 			Ouroboros {
@@ -307,8 +325,7 @@ impl Ouroboros {
                     total_stake,
                 );
 
-                // placeholder
-                println!("new slot leader schedule: {:#?}", slot_leaders);
+                debug_slot_leaders(&stakeholders, total_stake, &slot_leaders);
 
                 *self.slot_leaders.write() = slot_leaders;
                 // TODO: generate and save new pvss_secret
