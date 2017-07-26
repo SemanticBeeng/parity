@@ -1,6 +1,5 @@
-use pvss;
 
-use engines::validator_set::ValidatorSet;
+use pvss;
 
 pub struct PvssSecret {
     escrow: pvss::simple::Escrow,
@@ -12,10 +11,10 @@ unsafe impl Send for PvssSecret {}
 unsafe impl Sync for PvssSecret {}
 
 impl PvssSecret {
-    pub fn new(validator_set: &Box<ValidatorSet>, public_keys: &[Vec<u8>]) -> Self {
+    pub fn new(public_keys: &[Vec<u8>]) -> Self {
         // Calculate the threshold in the same way as cardano does https://github.com/input-output-hk/cardano-sl/blob/9d527fd/godtossing/Pos/Ssc/GodTossing/Functions.hs#L138-L141
-        let num_validators = validator_set.validators().len();
-        let threshold = num_validators / 2 + num_validators % 2;
+        let num_stakeholders = public_keys.len();
+        let threshold = num_stakeholders / 2 + num_stakeholders % 2;
 
         let public_keys: Vec<_> = public_keys.iter().map(|bytes| {
             pvss::crypto::PublicKey::from_bytes(bytes)

@@ -224,8 +224,7 @@ impl Ouroboros {
                 ).0.clone()
         }).collect();
 
-        // TODO: pass sorted_stakeholders instead
-        let pvss_secret = pvss_secret::PvssSecret::new(&validators, &public_keys[..]);
+        let pvss_secret = pvss_secret::PvssSecret::new(&public_keys[..]);
 
         let seed: Option<&[u8]> = None;
 
