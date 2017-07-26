@@ -18,9 +18,6 @@ impl PvssSecret {
         let num_validators = validator_set.validators().len();
         let threshold = num_validators / 2 + num_validators % 2;
 
-        let escrow = pvss::simple::escrow(threshold as u32);
-        let commitments = pvss::simple::commitments(&escrow);
-
         let public_keys: Vec<_> = validator_set.validators()
             .iter()
             .flat_map(|&v| {
@@ -33,6 +30,8 @@ impl PvssSecret {
                 })
             }).collect();
 
+        let escrow = pvss::simple::escrow(threshold as u32);
+        let commitments = pvss::simple::commitments(&escrow);
         let shares = pvss::simple::create_shares(&escrow, public_keys);
 
         PvssSecret {
