@@ -3,9 +3,7 @@ use bincode::{serialize, Infinite};
 use pvss;
 
 pub struct PvssSecret {
-    escrow: pvss::simple::Escrow,
-    commitments: Vec<pvss::simple::Commitment>,
-    shares: Vec<pvss::simple::EncryptedShare>,
+    simple_secret: PvssSimple,
 }
 
 unsafe impl Send for PvssSecret {}
@@ -13,6 +11,32 @@ unsafe impl Sync for PvssSecret {}
 
 impl PvssSecret {
     pub fn new(public_keys: &[Vec<u8>]) -> Self {
+        PvssSecret {
+            simple_secret: PvssSimple::new(public_keys),
+        }
+    }
+
+    pub fn secret_bytes(&self) -> Vec<u8> {
+        self.simple_secret.secret_bytes()
+    }
+
+    pub fn commitment_bytes(&self) -> Vec<u8> {
+        self.simple_secret.commitment_bytes()
+    }
+
+    pub fn share_bytes(&self) -> Vec<u8> {
+        self.simple_secret.share_bytes()
+    }
+}
+
+struct PvssSimple {
+    escrow: pvss::simple::Escrow,
+    commitments: Vec<pvss::simple::Commitment>,
+    shares: Vec<pvss::simple::EncryptedShare>,
+}
+
+impl PvssSimple {
+    fn new(public_keys: &[Vec<u8>]) -> Self {
         // Calculate the threshold in the same way as cardano does https://github.com/input-output-hk/cardano-sl/blob/9d527fd/godtossing/Pos/Ssc/GodTossing/Functions.hs#L138-L141
         let num_stakeholders = public_keys.len();
         let threshold = num_stakeholders / 2 + num_stakeholders % 2;
@@ -25,22 +49,22 @@ impl PvssSecret {
         let commitments = pvss::simple::commitments(&escrow);
         let shares = pvss::simple::create_shares(&escrow, &public_keys);
 
-        PvssSecret {
+        PvssSimple {
             escrow,
             commitments,
             shares,
         }
     }
 
-    pub fn secret_bytes(&self) -> Vec<u8> {
+    fn secret_bytes(&self) -> Vec<u8> {
         serialize(&self.escrow.secret, Infinite).expect("could not serialize secret")
     }
 
-    pub fn commitment_bytes(&self) -> Vec<u8> {
+    fn commitment_bytes(&self) -> Vec<u8> {
         serialize(&self.commitments, Infinite).expect("could not serialize commitments")
     }
 
-    pub fn share_bytes(&self) -> Vec<u8> {
+    fn share_bytes(&self) -> Vec<u8> {
         serialize(&self.shares, Infinite).expect("could not serialize shares")
     }
 }
