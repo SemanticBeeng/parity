@@ -48,18 +48,11 @@ type StakeholderId = Address;
 type SlotLeaders = Vec<StakeholderId>;
 type Stakes = HashMap<StakeholderId, Coin>;
 
-/// Which method of PVSS to use
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
-pub enum PvssMethod {
-    Simple,
-    Scrape,
-}
-
-impl From<ethjson::spec::PvssMethodParam> for PvssMethod {
+impl From<ethjson::spec::PvssMethodParam> for pvss_secret::PvssMethod {
 	fn from(p: ethjson::spec::PvssMethodParam) -> Self {
         match p {
-            ethjson::spec::PvssMethodParam::Simple => PvssMethod::Simple,
-            ethjson::spec::PvssMethodParam::Scrape => PvssMethod::Scrape,
+            ethjson::spec::PvssMethodParam::Simple => pvss_secret::PvssMethod::Simple,
+            ethjson::spec::PvssMethodParam::Scrape => pvss_secret::PvssMethod::Scrape,
         }
     }
 }
@@ -96,7 +89,7 @@ pub struct OuroborosParams {
 	/// Time that the chain began
 	pub network_wide_start_time: Option<u64>,
     /// Whether to use pvss::simple or pvss::scrape
-    pub pvss_method: PvssMethod,
+    pub pvss_method: pvss_secret::PvssMethod,
 	/// Namereg contract address.
 	pub registrar: Address,
 	/// Starting step, only used for testing.
@@ -139,7 +132,7 @@ pub struct Ouroboros {
     pvss_secret: RwLock<pvss_secret::PvssSecret>,
     pvss_stage: RwLock<PvssStage>,
     pvss_contract: pvss_contract::PvssContract,
-    pvss_method: PvssMethod,
+    pvss_method: pvss_secret::PvssMethod,
     public_keys: Vec<Vec<u8>>,
     sorted_stakeholders: Vec<Address>,
     security_parameter_k: u64,
@@ -222,7 +215,7 @@ impl Ouroboros {
                 ).0.clone()
         }).collect();
 
-        let pvss_secret = pvss_secret::PvssSecret::new(&public_keys);
+        let pvss_secret = pvss_secret::PvssSecret::new(our_params.pvss_method, &public_keys);
 
         let seed: Option<&[u8]> = None;
 
@@ -337,7 +330,10 @@ impl Ouroboros {
                 debug_slot_leaders(&stakeholders, total_stake, &slot_leaders);
 
                 *self.slot_leaders.write() = slot_leaders;
-                *self.pvss_secret.write() = pvss_secret::PvssSecret::new(&self.public_keys);
+                *self.pvss_secret.write() = pvss_secret::PvssSecret::new(
+                    self.pvss_method,
+                    &self.public_keys
+                );
             }
         }
     }
