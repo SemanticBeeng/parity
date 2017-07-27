@@ -1,3 +1,4 @@
+use bincode::{serialize, Infinite};
 
 use pvss;
 
@@ -31,15 +32,15 @@ impl PvssSecret {
         }
     }
 
-    pub fn secret(&self) -> &pvss::simple::Secret {
-        &self.escrow.secret
+    pub fn secret_bytes(&self) -> Vec<u8> {
+        serialize(&self.escrow.secret, Infinite).expect("could not serialize secret")
     }
 
-    pub fn commitments(&self) -> &[pvss::simple::Commitment] {
-        &self.commitments
+    pub fn commitment_bytes(&self) -> Vec<u8> {
+        serialize(&self.commitments, Infinite).expect("could not serialize commitments")
     }
 
-    pub fn shares(&self) -> &[pvss::simple::EncryptedShare] {
-        &self.shares
+    pub fn share_bytes(&self) -> Vec<u8> {
+        serialize(&self.shares, Infinite).expect("could not serialize shares")
     }
 }

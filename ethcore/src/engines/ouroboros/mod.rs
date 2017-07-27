@@ -38,8 +38,6 @@ use client::{Client, EngineClient, BlockId};
 use super::signer::EngineSigner;
 use super::validator_set::{ValidatorSet, new_validator_set};
 
-use bincode::{serialize, Infinite};
-
 mod fts;
 mod pvss_contract;
 mod pvss_secret;
@@ -443,13 +441,10 @@ impl Engine for Ouroboros {
         if pvss_stage == PvssStage::Commit {
             let pvss_secret = self.pvss_secret.read();
 
-            let commitment_bytes: Vec<u8> = serialize(&pvss_secret.commitments(), Infinite).expect("could not serialize commitments");
-            let share_bytes: Vec<u8> = serialize(&pvss_secret.shares(), Infinite).expect("could not serialize shares");
-
             self.pvss_contract.broadcast_commitments_and_shares(
                 self.epoch_number(),
-                &commitment_bytes,
-                &share_bytes,
+                &pvss_secret.commitment_bytes(),
+                &pvss_secret.share_bytes(),
             );
 
             *self.pvss_stage.write() = PvssStage::CommitBroadcast;
@@ -457,11 +452,9 @@ impl Engine for Ouroboros {
         } else if pvss_stage == PvssStage::CommitBroadcast && self.after_4k_slots() {
             let pvss_secret = self.pvss_secret.read();
 
-            let secret_bytes: Vec<u8> = serialize(&pvss_secret.secret(), Infinite).expect("could not serialize secret");
-
             self.pvss_contract.broadcast_secret(
                 self.epoch_number(),
-                &secret_bytes
+                &pvss_secret.secret_bytes()
             );
 
             *self.pvss_stage.write() = PvssStage::Reveal;
