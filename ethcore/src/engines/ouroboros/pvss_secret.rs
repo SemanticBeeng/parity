@@ -31,8 +31,8 @@ impl PvssSecret {
         }
     }
 
-    pub fn escrow(&self) -> &pvss::simple::Escrow {
-        &self.escrow
+    pub fn secret(&self) -> &pvss::simple::Secret {
+        &self.escrow.secret
     }
 
     pub fn commitments(&self) -> &[pvss::simple::Commitment] {

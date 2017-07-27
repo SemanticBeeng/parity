@@ -457,7 +457,7 @@ impl Engine for Ouroboros {
         } else if pvss_stage == PvssStage::CommitBroadcast && self.after_4k_slots() {
             let pvss_secret = self.pvss_secret.read();
 
-            let secret_bytes: Vec<u8> = serialize(&pvss_secret.escrow().secret, Infinite).expect("could not serialize secret");
+            let secret_bytes: Vec<u8> = serialize(&pvss_secret.secret(), Infinite).expect("could not serialize secret");
 
             self.pvss_contract.broadcast_secret(
                 self.epoch_number(),
