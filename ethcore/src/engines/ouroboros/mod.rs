@@ -144,6 +144,7 @@ pub struct Ouroboros {
     pvss_contract: pvss_contract::PvssContract,
     pvss_method: PvssMethod,
     public_keys: Vec<Vec<u8>>,
+    sorted_stakeholders: Vec<Address>,
     security_parameter_k: u64,
 	transition_service: IoService<()>,
 	registrar: Address,
@@ -209,7 +210,6 @@ impl Ouroboros {
         stakeholders.sort_by_key(|&(id, _)| id);
 
         let sorted_stakeholders: Vec<_> = stakeholders.iter().map(|&(id, _)| id.clone()).collect();
-        // TODO: what is my index?
 
         let total_stake = stakeholders.iter()
             .map(|&(_, amount)| amount)
@@ -257,7 +257,8 @@ impl Ouroboros {
                 pvss_stage: RwLock::new(PvssStage::Commit),
                 pvss_contract: pvss_contract::PvssContract::new(),
                 pvss_method: our_params.pvss_method,
-                public_keys: public_keys,
+                sorted_stakeholders,
+                public_keys,
                 security_parameter_k: our_params.security_parameter_k,
 				gas_limit_bound_divisor: our_params.gas_limit_bound_divisor,
 				eip155_transition: our_params.eip155_transition,
@@ -295,10 +296,8 @@ impl Ouroboros {
 
         if let Some(ref weak) = *self.client.read() {
             if let Some(client) = weak.upgrade() {
-                // TODO: save sorted_stakeholders and use that instead
-                let mut stakeholders: Vec<(StakeholderId, Coin)> = self.validators
-                    .validators()
-                    .into_iter()
+                let stakeholders: Vec<(StakeholderId, Coin)> = self.sorted_stakeholders
+                    .iter()
                     .map(|&validator| {
                         (
                             validator,
@@ -308,7 +307,6 @@ impl Ouroboros {
                             ).unwrap_or(Coin::from(0))
                         )
                     }).collect();
-                stakeholders.sort_by_key(|&(id, _)| id);
 
                 let total_stake = stakeholders.iter().map(|&(_, amount)| amount).fold(Coin::from(0), |acc, c| acc + c.into());
 
