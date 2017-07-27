@@ -38,8 +38,7 @@ use client::{Client, EngineClient, BlockId};
 use super::signer::EngineSigner;
 use super::validator_set::{ValidatorSet, new_validator_set};
 
-use pvss;
-use bincode::{serialize, deserialize, Infinite};
+use bincode::{serialize, Infinite};
 
 mod fts;
 mod pvss_contract;
@@ -310,29 +309,23 @@ impl Ouroboros {
 
                 let total_stake = stakeholders.iter().map(|&(_, amount)| amount).fold(Coin::from(0), |acc, c| acc + c.into());
 
-                for &(address, _) in &stakeholders {
-
-                    let (commitment_bytes, share_bytes) = self.pvss_contract
-                        .get_commitments_and_shares(last_epoch, &address)
-                        .expect(&format!("could not get commitments and shares for epoch {}, address {:?}", last_epoch, address));
-
-                    let commitments: Vec<pvss::simple::Commitment> = deserialize(&commitment_bytes).expect("Could not deserialize commitments");
-                    let shares: Vec<pvss::simple::EncryptedShare> = deserialize(&share_bytes).expect("Could not deserialize shares");
-
-                    // TODO: match up my private key with my index and the commitments from other
-                    // nodes for me, decrypt and verify
-                }
-
-                let zero = vec![0];
-                let seed: Vec<u8> = stakeholders.iter()
-                    .map(|&(address, _)| address)
-                    .fold(zero, |acc, address| {
+                let mut secret_bytes: Vec<_> = stakeholders.iter()
+                    .map(|&(address, _)| {
                         let secret_bytes = self.pvss_contract
                             .get_secret(last_epoch, &address)
                             .expect(&format!("could not get secret for epoch {}, address {:?}", last_epoch, address));
+                        println!("address: {:?}, secret_bytes: {:?}", address, secret_bytes);
 
-                        acc.iter().zip(secret_bytes.iter()).map(|(a, b)| a ^ b).collect()
-                    });
+                        secret_bytes
+                    }).collect();
+
+                let mut seed = secret_bytes.pop().expect("must have at least one secret");
+
+                for secret in &secret_bytes {
+                    for (seed_byte, secret_byte) in seed.iter_mut().zip(secret.iter()) {
+                        *seed_byte ^= *secret_byte;
+                    }
+                }
 
                 println!("shared seed is {:#?}", seed);
 
