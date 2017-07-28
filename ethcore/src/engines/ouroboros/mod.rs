@@ -318,7 +318,7 @@ impl Ouroboros {
                     }
                 }
 
-                println!("shared seed is {:#?}", seed);
+                println!("shared seed is {:?}", seed);
 
                 let slot_leaders = fts::follow_the_satoshi(
                     Some(&seed),
@@ -711,45 +711,6 @@ mod tests {
 			// Second proposal is forbidden.
 			assert!(engine.generate_seal(b2.block()) == Seal::None);
 		}
-	}
-
-	#[test]
-	fn proposer_switching() {
-		let tap = AccountProvider::transient_provider();
-		let addr = tap.insert_account(Secret::from_slice(&"1".sha3()).unwrap(), "0").unwrap();
-		let mut parent_header: Header = Header::default();
-        parent_header.set_seal(
-			vec![
-                encode(&0usize).to_vec()
-            ]
-        );
-		parent_header.set_gas_limit(U256::from_str("222222").unwrap());
-		let mut header: Header = Header::default();
-		header.set_number(1);
-		header.set_gas_limit(U256::from_str("222222").unwrap());
-		header.set_author(addr);
-
-		let engine = Spec::new_test_ouroboros().engine;
-
-		let signature = tap.sign(addr, Some("0".into()), header.bare_hash()).unwrap();
-
-		// Two validators.
-
-		header.set_seal(
-            vec![
-                encode(&2usize).to_vec(),
-                encode(&(&*signature as &[u8])).to_vec()
-            ]
-        );
-		assert!(engine.verify_block_family(&header, &parent_header, None).is_err());
-
-		header.set_seal(
-            vec![
-                encode(&1usize).to_vec(),
-                encode(&(&*signature as &[u8])).to_vec()
-            ]
-        );
-		assert!(engine.verify_block_family(&header, &parent_header, None).is_ok());
 	}
 
 	#[test]

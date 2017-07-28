@@ -25,11 +25,14 @@ pub fn follow_the_satoshi<'a, I>(
     total_coins: Coin) -> SlotLeaders
 where I: IntoIterator<Item=&'a u8> {
 
-    let seed_bytes: Vec<_> = match seed {
-        Some(seed) => seed.into_iter().map(|&b| b as u32).collect(),
-        None => GENESIS_SEED.bytes().map(|b| b as u32).collect(),
+    let seed_bytes: Vec<u8> = match seed {
+        Some(seed) => seed.into_iter().map(|&u| u).collect(),
+        None => GENESIS_SEED.bytes().into_iter().collect(),
     };
-    let mut rng = rand::ChaChaRng::from_seed(&seed_bytes);
+    let seed_slice = as_u32_seed(&seed_bytes);
+    println!("fts seed is {:?}", seed_slice);
+
+    let mut rng = rand::ChaChaRng::from_seed(seed_slice);
 
     assert!(total_coins != Coin::zero(), "Total amount of coin held by the validators is 0!");
 
@@ -40,6 +43,8 @@ where I: IntoIterator<Item=&'a u8> {
         .collect();
 
     coin_indices.sort_by_key(|&(_, r)| r);
+
+    println!("coin_indices is {:?}", coin_indices);
 
     let mut max_coins = Coin::zero();
     let mut ci = coin_indices.iter().peekable();
@@ -61,6 +66,24 @@ where I: IntoIterator<Item=&'a u8> {
     slot_leaders.sort_by_key(|&(i, _)| i);
 
     slot_leaders.into_iter().map(|(_, v)| v).collect()
+}
+
+// The ChaChaRng::from_seed implementation
+// (https://docs.rs/rand/0.3.15/rand/chacha/struct.ChaChaRng.html)
+// takes a slice of u32s and only uses up to 8 words.
+//
+// This function takes the first 8*4=32 u8 values in a slice of u8s
+// and turns them into a slice of 8 u32s.
+fn as_u32_seed(u8s: &[u8]) -> &[u32] {
+    assert!(u8s.len() >= 32);
+    let first_32 = &u8s[..32];
+    assert!(first_32.len() == 32);
+    unsafe {
+        ::std::slice::from_raw_parts(
+            first_32.as_ptr() as *const u32,
+            8
+        )
+    }
 }
 
 #[cfg(test)]
@@ -92,7 +115,11 @@ mod tests {
         let seed: Option<&[u8]> = None;
 
         let result = follow_the_satoshi(seed, &balances, 10, Coin::from(100));
-        assert_eq!(result, [bbb.clone(), aaa.clone(), aaa.clone(), bbb.clone(), aaa.clone(), bbb.clone(), bbb.clone(), aaa.clone(), bbb.clone(), bbb.clone()]);
+        assert_eq!(result, [
+            aaa.clone(), aaa.clone(), aaa.clone(),
+            bbb.clone(),
+            aaa.clone(), aaa.clone(), aaa.clone(),
+            bbb.clone(), bbb.clone(), bbb.clone()]);
     }
 
     #[test]
@@ -106,6 +133,11 @@ mod tests {
         let seed: Option<&[u8]> = None;
 
         let result = follow_the_satoshi(seed, &balances, 10, Coin::from(100));
-        assert_eq!(result, [bbb.clone(), aaa.clone(), aaa.clone(), aaa.clone(), aaa.clone(), aaa.clone(), bbb.clone(), aaa.clone(), bbb.clone(), bbb.clone()]);
+        assert_eq!(result, [
+            aaa.clone(), aaa.clone(), aaa.clone(),
+            bbb.clone(),
+            aaa.clone(), aaa.clone(), aaa.clone(),
+            bbb.clone(),
+            aaa.clone(), aaa.clone()]);
     }
 }

@@ -44,7 +44,7 @@
 		"0000000000000000000000000000000000000003": { "balance": "1", "nonce": "1048576", "builtin": { "name": "ripemd160", "pricing": { "linear": { "base": 600, "word": 120 } } } },
 		"0000000000000000000000000000000000000004": { "balance": "1", "nonce": "1048576", "builtin": { "name": "identity", "pricing": { "linear": { "base": 15, "word": 3 } } } },
 		"9cce34f7ab185c7aba1b7c8140d620b4bda941d6": { "balance": "1606938044258990275541962092341162602522202993782792835301376", "nonce": "1048576" },
-		"7d577a597b2742b498cb5cf0c26cdcd726d39e6e": {"balance": "5", "pvss": { "public_key": "0x04823124f450ea06b3e1fcffadbebac9e3d00bc6531f23b4184b8a110f63b6f7596dd1a690c592c05755584fa1860d704be9add478575cd067906afde0d2df9085", "private_key": "0xfff1b7d4a600d44039402d26ecadcbc8da456d8be96b4090af9791adb7a7584b"}},
-		"82a978b3f5962a5b0957d9ee9eef472ee55b42f1": {"balance": "5", "pvss": { "public_key": "0x04343e9b4a46c221fdf15d5b3a8ff720a09d1880eec9d5ac91f89ac2b7ab307f548f08ea9a749b1a86fc13d1ca837026ada06dcfcf59d88e1b7330e8e038047ed2", "private_key": "0xb761bdab342cfaa8689d3bcb1262685994361d71926b02c25d8afae870ca429a"}}
+		"7d577a597b2742b498cb5cf0c26cdcd726d39e6e": {"balance": "80", "pvss": { "public_key": "0x04823124f450ea06b3e1fcffadbebac9e3d00bc6531f23b4184b8a110f63b6f7596dd1a690c592c05755584fa1860d704be9add478575cd067906afde0d2df9085", "private_key": "0xfff1b7d4a600d44039402d26ecadcbc8da456d8be96b4090af9791adb7a7584b"}},
+		"82a978b3f5962a5b0957d9ee9eef472ee55b42f1": {"balance": "20", "pvss": { "public_key": "0x04343e9b4a46c221fdf15d5b3a8ff720a09d1880eec9d5ac91f89ac2b7ab307f548f08ea9a749b1a86fc13d1ca837026ada06dcfcf59d88e1b7330e8e038047ed2", "private_key": "0xb761bdab342cfaa8689d3bcb1262685994361d71926b02c25d8afae870ca429a"}}
 	}
 }
