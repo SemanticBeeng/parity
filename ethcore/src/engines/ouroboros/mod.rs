@@ -211,13 +211,13 @@ impl Ouroboros {
             .fold(Coin::from(0), |acc, c| acc + c.into());
 
         let public_keys: Vec<Vec<u8>> = sorted_stakeholders.iter().map(|&id| {
-            accounts.0.get(&From::from(id)).expect(
-                    &format!("could not find account for {}", id)
-                ).pvss.as_ref().expect(
-                    &format!("could not find pvss for {}", id)
-                ).public_key.as_ref().expect(
-                    &format!("could not find public key for {}", id)
-                ).0.clone()
+            accounts.0.get(&id.into())
+                .unwrap_or_else(|| panic!("could not find account for {}", id))
+                .pvss.as_ref()
+                .unwrap_or_else(|| panic!("could not find pvss for {}", id))
+                .public_key.as_ref()
+                .unwrap_or_else(|| panic!("could not find public key for {}", id))
+                .0.clone()
         }).collect();
 
         let pvss_secret = pvss_secret::PvssSecret::new(our_params.pvss_method, &public_keys);
@@ -309,7 +309,7 @@ impl Ouroboros {
                     .map(|&(address, _)| {
                         let secret_bytes = self.pvss_contract
                             .get_secret(last_epoch, &address)
-                            .expect(&format!("could not get secret for epoch {}, address {:?}", last_epoch, address));
+                            .unwrap_or_else(|| panic!("could not get secret for epoch {}, address {:?}", last_epoch, address));
                         println!("address: {:?}, secret_bytes: {:?}", address, secret_bytes);
 
                         secret_bytes
