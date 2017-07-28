@@ -56,6 +56,8 @@ impl PvssContract {
 		}
 	}
 
+    // TODO: This function isn't needed until we implement recovery
+    #[allow(dead_code)]
     pub fn get_commitments_and_shares(&self, epoch_number: usize, address: &Address) -> Option<(Vec<u8>, Vec<u8>)> {
 		if let Some(ref provider) = *self.read_provider.read() {
 
