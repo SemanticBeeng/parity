@@ -30,7 +30,7 @@ where I: IntoIterator<Item=&'a u8> {
         None => GENESIS_SEED.bytes().into_iter().collect(),
     };
     let seed_slice = as_u32_seed(&seed_bytes);
-    println!("fts seed is {:?}", seed_slice);
+    trace!(target: "engine", "fts seed is {:?}", seed_slice);
 
     let mut rng = rand::ChaChaRng::from_seed(seed_slice);
 
@@ -44,7 +44,7 @@ where I: IntoIterator<Item=&'a u8> {
 
     coin_indices.sort_by_key(|&(_, r)| r);
 
-    println!("coin_indices is {:?}", coin_indices);
+    trace!(target: "engine", "coin_indices is {:?}", coin_indices);
 
     let mut max_coins = Coin::zero();
     let mut ci = coin_indices.iter().peekable();

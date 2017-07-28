@@ -168,12 +168,14 @@ impl AsMillis for Duration {
 	}
 }
 
-fn debug_slot_leaders(stakeholders: &[(StakeholderId, Coin)], total_stake: Coin, slot_leaders: &SlotLeaders) {
-    println!("\ndistribution of stake:");
+fn trace_slot_leaders(stakeholders: &[(StakeholderId, Coin)], total_stake: Coin, slot_leaders: &SlotLeaders) {
+    if !log_enabled!(::log::LogLevel::Trace) { return }
+
+    trace!(target: "engine", "\ndistribution of stake:");
     for &(id, coin) in stakeholders {
-        println!("{}: {} / {} ({}%)", id, coin, total_stake, coin.low_u64() as f64 / total_stake.low_u64() as f64 * 100.0);
+        trace!(target: "engine", "{}: {} / {} ({}%)", id, coin, total_stake, coin.low_u64() as f64 / total_stake.low_u64() as f64 * 100.0);
     }
-    println!("\ndistribution of slots:");
+    trace!(target: "engine", "\ndistribution of slots:");
     let mut slot_counts = HashMap::new();
     for &leader in slot_leaders {
         *slot_counts.entry(leader).or_insert(0) += 1;
@@ -181,9 +183,9 @@ fn debug_slot_leaders(stakeholders: &[(StakeholderId, Coin)], total_stake: Coin,
     let num_slots = slot_leaders.len();
     for &(id, _) in stakeholders {
         let v = slot_counts.get(&id).unwrap();
-        println!("{}: {} ({}%)", id, v, *v as f64 / num_slots as f64 * 100.0);
+        trace!(target: "engine", "{}: {} ({}%)", id, v, *v as f64 / num_slots as f64 * 100.0);
     }
-    println!("\ninitial slot leader schedule: {:#?}", slot_leaders);
+    trace!(target: "engine", "\ninitial slot leader schedule: {:#?}", slot_leaders);
 }
 
 impl Ouroboros {
@@ -231,7 +233,7 @@ impl Ouroboros {
             total_stake,
         );
 
-        debug_slot_leaders(&stakeholders, total_stake, &slot_leaders);
+        trace_slot_leaders(&stakeholders, total_stake, &slot_leaders);
 
 		let engine = Arc::new(
 			Ouroboros {
@@ -310,7 +312,7 @@ impl Ouroboros {
                         let secret_bytes = self.pvss_contract
                             .get_secret(last_epoch, &address)
                             .unwrap_or_else(|| panic!("could not get secret for epoch {}, address {:?}", last_epoch, address));
-                        println!("address: {:?}, secret_bytes: {:?}", address, secret_bytes);
+                        trace!(target: "engine", "address: {:?}, secret_bytes: {:?}", address, secret_bytes);
 
                         secret_bytes
                     }).collect();
@@ -323,7 +325,7 @@ impl Ouroboros {
                     }
                 }
 
-                println!("shared seed is {:?}", seed);
+                trace!(target: "engine", "shared seed is {:?}", seed);
 
                 let slot_leaders = fts::follow_the_satoshi(
                     Some(&seed),
@@ -332,7 +334,7 @@ impl Ouroboros {
                     total_stake,
                 );
 
-                debug_slot_leaders(&stakeholders, total_stake, &slot_leaders);
+                trace_slot_leaders(&stakeholders, total_stake, &slot_leaders);
 
                 *self.slot_leaders.write() = slot_leaders;
                 *self.pvss_secret.write() = pvss_secret::PvssSecret::new(
