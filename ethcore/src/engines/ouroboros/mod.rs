@@ -442,6 +442,15 @@ impl Engine for Ouroboros {
         if pvss_stage == PvssStage::Commit {
             let pvss_secret = self.pvss_secret.read();
 
+            // TODO: This is probably not the right place to call this since the node that
+            // generated the secret is verifying it itself, rather than the node that is
+            // considering adding the shares to a block, but this is good enough for
+            // the purposes of performance testing. If this is verifying that the pvss
+            // algorithm produced valid values, then perhaps this is fine!
+            if !pvss_secret.verify_encrypted() {
+                panic!("Could not verify encrypted shares!");
+            }
+
             self.pvss_contract.broadcast_commitments_and_shares(
                 self.epoch_number(),
                 &pvss_secret.commitment_bytes(),

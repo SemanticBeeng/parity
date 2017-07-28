@@ -53,9 +53,17 @@ impl PvssSecret {
             SecretType::Scrape(ref scrape) => scrape.share_bytes(),
         }
     }
+
+    pub fn verify_encrypted(&self) -> bool {
+        match self.secret_type {
+            SecretType::Simple(ref simple) => simple.verify_encrypted(),
+            SecretType::Scrape(ref scrape) => scrape.verify_encrypted(),
+        }
+    }
 }
 
 struct PvssSimple {
+    public_keys: Vec<pvss::crypto::PublicKey>,
     escrow: pvss::simple::Escrow,
     commitments: Vec<pvss::simple::Commitment>,
     shares: Vec<pvss::simple::EncryptedShare>,
@@ -76,6 +84,7 @@ impl PvssSimple {
         let shares = pvss::simple::create_shares(&escrow, &public_keys);
 
         PvssSimple {
+            public_keys,
             escrow,
             commitments,
             shares,
@@ -93,9 +102,29 @@ impl PvssSimple {
     fn share_bytes(&self) -> Vec<u8> {
         serialize(&self.shares, Infinite).expect("could not serialize shares")
     }
+
+    pub fn verify_encrypted(&self) -> bool {
+        for share in &self.shares {
+            // TODO: investigate why pvss::simple's share.verify needs the share.id passed in
+            // when it's coming from the share anyway.......
+            let idx = share.id as usize;
+            if share.verify(
+                    share.id,
+                    &self.public_keys[idx],
+                    &self.escrow.extra_generator,
+                    &self.commitments
+            ) {
+                continue;
+            } else {
+                return false;
+            }
+        }
+        true
+    }
 }
 
 pub struct PvssScrape {
+    public_keys: Vec<pvss::crypto::PublicKey>,
     escrow: pvss::scrape::Escrow,
     public_shares: pvss::scrape::PublicShares,
 }
@@ -114,6 +143,7 @@ impl PvssScrape {
         let public_shares = pvss::scrape::create_shares(&escrow, &public_keys);
 
         PvssScrape {
+            public_keys,
             escrow,
             public_shares,
         }
@@ -131,5 +161,9 @@ impl PvssScrape {
     fn share_bytes(&self) -> Vec<u8> {
         serialize(&self.public_shares.encrypted_shares, Infinite)
             .expect("could not serialize shares")
+    }
+
+    pub fn verify_encrypted(&self) -> bool {
+        self.public_shares.verify(&self.public_keys)
     }
 }
