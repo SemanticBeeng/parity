@@ -38,6 +38,11 @@ use client::{Client, EngineClient, BlockId};
 use super::signer::EngineSigner;
 use super::validator_set::{ValidatorSet, new_validator_set};
 
+// TODO: don't hardcode address of pvss contract
+lazy_static! {
+    static ref PVSS_CONTRACT_ADDRESS: Address = Address::from_str("0000000000000000000000000000000000000005").unwrap();
+}
+
 mod fts;
 mod pvss_contract;
 mod pvss_secret;
@@ -245,7 +250,7 @@ impl Ouroboros {
                 slot_leaders: RwLock::new(slot_leaders),
                 pvss_secret: RwLock::new(pvss_secret),
                 pvss_stage: RwLock::new(PvssStage::Commit),
-                pvss_contract: pvss_contract::PvssContract::new(),
+                pvss_contract: pvss_contract::PvssContract::new(&PVSS_CONTRACT_ADDRESS),
                 pvss_method: our_params.pvss_method,
                 sorted_stakeholders,
                 public_keys,

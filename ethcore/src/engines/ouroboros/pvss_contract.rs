@@ -13,9 +13,9 @@ pub struct PvssContract {
 }
 
 impl PvssContract {
-	pub fn new() -> Self {
+	pub fn new(address: &Address) -> Self {
 		PvssContract {
-			address: Address::from_str("0000000000000000000000000000000000000005").unwrap(),
+			address: address.clone(),
 			read_provider: RwLock::new(None),
             write_provider: RwLock::new(None),
 		}
