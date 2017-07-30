@@ -133,7 +133,21 @@ impl PvssScrape {
     pub fn new(public_keys: &[Vec<u8>]) -> Self {
         // Calculate the threshold in the same way as cardano does https://github.com/input-output-hk/cardano-sl/blob/9d527fd/godtossing/Pos/Ssc/GodTossing/Functions.hs#L138-L141
         let num_stakeholders = public_keys.len();
+        // error "cannot create SCRAPE with less than 3 participants"
+        // https://github.com/input-output-hk/pvss-haskell/blob/master/src/Crypto/SCRAPE.hs#L166
+        assert!(num_stakeholders > 2, "cannot create SCRAPE with fewer than 3 participants");
         let threshold = num_stakeholders / 2 + num_stakeholders % 2;
+
+        // error valid values of threshold are: threshold + 2 <= num participants
+        // https://github.com/input-output-hk/pvss-haskell/blob/master/src/Crypto/SCRAPE.hs#L167
+        assert!(
+            threshold + 2 <= num_stakeholders,
+            format!(
+                "cannot create SCRAPE with threshold={} participants={}. valid values of threshold are: t + 2 <= n",
+                threshold,
+                num_stakeholders
+            )
+        );
 
         let public_keys: Vec<_> = public_keys.iter().map(|bytes| {
             pvss::crypto::PublicKey::from_bytes(bytes)
@@ -165,5 +179,60 @@ impl PvssScrape {
 
     pub fn verify_encrypted(&self) -> bool {
         self.public_shares.verify(&self.public_keys)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{PvssSecret, PvssMethod};
+    use rustc_serialize::hex::FromHex;
+
+    fn public_keys() -> Vec<Vec<u8>> {
+        vec![
+            FromHex::from_hex(
+                "04823124f450ea06b3e1fcffadbebac9e3d00bc6531f23b4184b8a110f63b6f7596dd1a690c592c05755584fa1860d704be9add478575cd067906afde0d2df9085"
+            ).unwrap(),
+            FromHex::from_hex(
+                "04343e9b4a46c221fdf15d5b3a8ff720a09d1880eec9d5ac91f89ac2b7ab307f548f08ea9a749b1a86fc13d1ca837026ada06dcfcf59d88e1b7330e8e038047ed2"
+            ).unwrap(),
+            FromHex::from_hex(
+                "0316ab5795f85d121bc38f1b72a3ef8e322b223ea4dcaace1a6afa24ce2e76015a"
+            ).unwrap(),
+            FromHex::from_hex(
+                "0371ce6e8d367b0b7f3c2da66613e03df62d00f00639fa151411418d66dad7ddb3"
+            ).unwrap(),
+        ]
+    }
+
+    #[test]
+    fn simple_with_two_keys_validates() {
+        let pvss_secret = PvssSecret::new(PvssMethod::Simple, &public_keys()[..2]);
+        assert!(pvss_secret.verify_encrypted());
+    }
+
+    #[test]
+    #[should_panic(expected = "cannot create SCRAPE with fewer than 3 participants")]
+    fn scrape_with_two_keys_panics() {
+        let pvss_secret = PvssSecret::new(PvssMethod::Scrape, &public_keys()[..2]);
+        assert!(pvss_secret.verify_encrypted());
+    }
+
+    #[test]
+    fn simple_with_three_keys_validates() {
+        let pvss_secret = PvssSecret::new(PvssMethod::Simple, &public_keys()[..3]);
+        assert!(pvss_secret.verify_encrypted());
+    }
+
+    #[test]
+    #[should_panic(expected = "cannot create SCRAPE with threshold=2 participants=3. valid values of threshold are: t + 2 <= n")]
+    fn scrape_with_three_keys_panics() {
+        let pvss_secret = PvssSecret::new(PvssMethod::Scrape, &public_keys()[..3]);
+        assert!(pvss_secret.verify_encrypted());
+    }
+
+    #[test]
+    fn scrape_with_four_keys_validates() {
+        let pvss_secret = PvssSecret::new(PvssMethod::Scrape, &public_keys()[..4]);
+        assert!(pvss_secret.verify_encrypted());
     }
 }

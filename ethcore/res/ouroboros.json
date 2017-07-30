@@ -8,7 +8,7 @@
 				"startStep": 2,
                 "networkWideStartTime": "0x5964D091",
                 "securityParameterK": "2",
-                "pvss": "simple",
+                "pvssMethod": "simple",
 				"validators": {
 					"list": [
 						"0x7d577a597b2742b498cb5cf0c26cdcd726d39e6e",
