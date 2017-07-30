@@ -32,7 +32,7 @@ where I: IntoIterator<Item=&'a u8> {
     let seed_slice = as_u32_seed(&seed_bytes);
     trace!(target: "engine", "fts seed is {:?}", seed_slice);
 
-    let mut rng = rand::ChaChaRng::from_seed(seed_slice);
+    let mut rng = rand::ChaChaRng::from_seed(&seed_slice);
 
     assert!(total_coins != Coin::zero(), "Total amount of coin held by the validators is 0!");
 
@@ -71,24 +71,29 @@ where I: IntoIterator<Item=&'a u8> {
 // The ChaChaRng::from_seed implementation
 // (https://docs.rs/rand/0.3.15/rand/chacha/struct.ChaChaRng.html)
 // takes a slice of u32s and only uses up to 8 words.
-//
+const NUM_U32S: usize = 8;
+
 // This function takes the first 8*4=32 u8 values in a slice of u8s
 // and turns them into a slice of 8 u32s.
-fn as_u32_seed(u8s: &[u8]) -> &[u32] {
-    assert!(u8s.len() >= 32);
-    let first_32 = &u8s[..32];
-    assert!(first_32.len() == 32);
-    unsafe {
-        ::std::slice::from_raw_parts(
-            first_32.as_ptr() as *const u32,
-            8
-        )
-    }
+fn as_u32_seed(v: &[u8]) -> Vec<u32> {
+    use itertools::Itertools;
+    v.into_iter()
+        .map(|&u| u)
+        .chain(::std::iter::repeat(0))
+        .take(NUM_U32S * 4)
+        .tuples::<(_, _, _, _)>()
+        .map(|c| {
+            (c.3 as u32) << 24 |
+            (c.2 as u32) << 16 |
+            (c.1 as u32) <<  8 |
+            (c.0 as u32) <<  0
+        })
+        .collect()
 }
 
 #[cfg(test)]
 mod tests {
-    use super::follow_the_satoshi;
+    use super::{follow_the_satoshi, as_u32_seed};
     use engines::ouroboros::Coin; //, SlotLeaders, StakeholderId};
 	use util::*;
 
@@ -139,5 +144,13 @@ mod tests {
             aaa.clone(), aaa.clone(), aaa.clone(),
             bbb.clone(),
             aaa.clone(), aaa.clone()]);
+    }
+
+    #[test]
+    fn as_u32_seed_pads_to_32() {
+        let v = vec![1, 2, 3, 4, 5, 6];
+        let result = as_u32_seed(&v);
+        let expected = vec![67305985, 1541, 0, 0, 0, 0, 0, 0];
+        assert_eq!(result, &expected[..]);
     }
 }
