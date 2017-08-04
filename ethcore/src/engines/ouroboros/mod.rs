@@ -203,6 +203,11 @@ impl Ouroboros {
         let validators = new_validator_set(our_params.validators);
 
         let stakeholders = Ouroboros::stakeholders(&validators, accounts);
+
+        if stakeholders.is_empty() {
+            error!(target: "engine", "No stakeholder information is available");
+        }
+
         let mut stakeholders: Vec<(StakeholderId, Coin)> = stakeholders.into_iter().collect();
         stakeholders.sort_by_key(|&(id, _)| id);
 
@@ -296,16 +301,32 @@ impl Ouroboros {
                 let stakeholders: Vec<(StakeholderId, Coin)> = self.sorted_stakeholders
                     .iter()
                     .map(|&validator| {
-                        (
-                            validator,
-                            client.balance(
-                                &validator,
-                                BlockId::Number(back_2k_slots as BlockNumber)
-                            ).unwrap_or(Coin::from(0))
-                        )
+                        let coins = client.balance(
+                            &validator,
+                            BlockId::Number(back_2k_slots as BlockNumber)
+                        );
+
+                        if coins.is_none() {
+                            error!(
+                                target: "engine",
+                                "Coins for {} at {} are zero",
+                                validator, back_2k_slots
+                            );
+                        }
+
+                        (validator, coins.unwrap_or(Coin::from(0)))
                     }).collect();
 
-                let total_stake = stakeholders.iter().map(|&(_, amount)| amount).fold(Coin::from(0), |acc, c| acc + c.into());
+                if stakeholders.is_empty() {
+                    error!(
+                        target: "engine",
+                        "No stakeholder information is available (compute_new_slot_leaders)"
+                    );
+                }
+
+                let total_stake = stakeholders.iter()
+                    .map(|&(_, amount)| amount)
+                    .fold(Coin::from(0), |acc, c| acc + c.into());
 
                 let mut secret_bytes: Vec<_> = stakeholders.iter()
                     .map(|&(address, _)| {
@@ -382,10 +403,22 @@ impl Ouroboros {
 	}
 
     fn stakeholders(validator_set: &Box<ValidatorSet>, accounts: &ethjson::spec::State) -> Stakes {
-        validator_set.validators().into_iter().flat_map(|&v| {
-            accounts.0.get(&From::from(v)).map(|account| {
-                (v, account.balance.map_or(Coin::from(0), |c| c.into()))
-            })
+        let validators = validator_set.validators();
+
+        if validators.is_empty() {
+            error!(target: "engine", "No validators are available");
+        }
+
+        validators.into_iter().flat_map(|&v| {
+            match accounts.0.get(&From::from(v)) {
+                Some(account) => {
+                    Some((v, account.balance.map_or(Coin::from(0), |c| c.into())))
+                }
+                None => {
+                    error!(target: "engine", "Account {} is not available", v);
+                    None
+                }
+            }
         }).collect()
     }
 }
