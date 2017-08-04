@@ -671,7 +671,7 @@ impl Client {
 		let block_number = match self.block_number(id.clone()) {
 			Some(num) => num,
 			None => {
-                error!(
+                info!(
                     target: "engine",
                     "block_number returned None for {:?}",
                     id,
@@ -684,7 +684,7 @@ impl Client {
 		let x = self.block_header(id);
 
         if x.is_none() {
-            error!(
+            info!(
                 target: "engine",
                 "Block header for {:?} was None",
                 id,
@@ -696,7 +696,7 @@ impl Client {
 
 			// early exit for pruned blocks
 			if db.is_pruned() && self.pruning_info().earliest_state > block_number {
-                error!(
+                info!(
                     target: "engine",
                     "State at {} was pruned",
                     block_number,
@@ -1172,7 +1172,7 @@ impl BlockChainClient for Client {
 		let x = self.state_at(id);
 
         if x.is_none() {
-            error!(
+            info!(
                 target: "engine",
                 "State for {} at {:?} was None",
                 address, id,
@@ -1184,7 +1184,7 @@ impl BlockChainClient for Client {
 
             if let Err(e) = y.as_ref() {
                 error!(
-                target: "engine",
+                    target: "engine",
                     "Error getting balance for {} at {:?}: {}",
                     address, id, e,
                 );

@@ -294,6 +294,7 @@ impl Ouroboros {
     fn compute_new_slot_leaders(&self) {
         let step = self.step.load(AtomicOrdering::SeqCst);
         let back_2k_slots = step - 2 * self.security_parameter_k as usize;
+        let back_2k_block_id = BlockId::Number(back_2k_slots as BlockNumber);
         let last_epoch = self.epoch_number() - 1;
 
         if let Some(ref weak) = *self.client.read() {
@@ -301,20 +302,17 @@ impl Ouroboros {
                 let stakeholders: Vec<(StakeholderId, Coin)> = self.sorted_stakeholders
                     .iter()
                     .map(|&validator| {
-                        let coins = client.balance(
-                            &validator,
-                            BlockId::Number(back_2k_slots as BlockNumber)
-                        );
+                        let coins = client.balance(&validator, back_2k_block_id)
+                            .unwrap_or_else(|| {
+                                panic!(
+                                    "Unable to get balance for address {} at {} (currently at step {})",
+                                    validator,
+                                    back_2k_slots,
+                                    step,
+                                );
+                            });
 
-                        if coins.is_none() {
-                            error!(
-                                target: "engine",
-                                "Coins for {} at {} are zero",
-                                validator, back_2k_slots
-                            );
-                        }
-
-                        (validator, coins.unwrap_or(Coin::from(0)))
+                        (validator, coins)
                     }).collect();
 
                 if stakeholders.is_empty() {
@@ -407,6 +405,14 @@ impl Ouroboros {
 
         if validators.is_empty() {
             error!(target: "engine", "No validators are available");
+        }
+
+        if validators.iter().any(|v| v == &Address::default()) {
+            warn!(
+                target: "engine",
+                "Validator contains the zero address: {:?}",
+                validators,
+            );
         }
 
         validators.into_iter().flat_map(|&v| {
