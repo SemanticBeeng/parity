@@ -670,19 +670,53 @@ impl Client {
 
 		let block_number = match self.block_number(id.clone()) {
 			Some(num) => num,
-			None => return None,
+			None => {
+                error!(
+                    target: "engine",
+                    "block_number returned None for {:?}",
+                    id,
+                );
+
+                return None;
+            },
 		};
 
-		self.block_header(id).and_then(|header| {
+		let x = self.block_header(id);
+
+        if x.is_none() {
+            error!(
+                target: "engine",
+                "Block header for {:?} was None",
+                id,
+            );
+        }
+
+        x.and_then(|header| {
 			let db = self.state_db.lock().boxed_clone();
 
 			// early exit for pruned blocks
 			if db.is_pruned() && self.pruning_info().earliest_state > block_number {
+                error!(
+                    target: "engine",
+                    "State at {} was pruned",
+                    block_number,
+                );
+
 				return None;
 			}
 
 			let root = header.state_root();
-			State::from_existing(db, root, self.engine.account_start_nonce(), self.factories.clone()).ok()
+			let x = State::from_existing(db, root, self.engine.account_start_nonce(), self.factories.clone());
+
+            if let Err(e) = x.as_ref() {
+                error!(
+                    target: "engine",
+                    "State from existing had an error at {}: {}",
+                    block_number, e,
+                );
+            }
+
+            x.ok()
 		})
 	}
 
@@ -1135,7 +1169,29 @@ impl BlockChainClient for Client {
 	}
 
 	fn balance(&self, address: &Address, id: BlockId) -> Option<U256> {
-		self.state_at(id).and_then(|s| s.balance(address).ok())
+		let x = self.state_at(id);
+
+        if x.is_none() {
+            error!(
+                target: "engine",
+                "State for {} at {:?} was None",
+                address, id,
+            );
+        }
+
+        x.and_then(|s| {
+            let y = s.balance(address);
+
+            if let Err(e) = y.as_ref() {
+                error!(
+                target: "engine",
+                    "Error getting balance for {} at {:?}: {}",
+                    address, id, e,
+                );
+            }
+
+            y.ok()
+        })
 	}
 
 	fn storage_at(&self, address: &Address, position: &H256, id: BlockId) -> Option<H256> {

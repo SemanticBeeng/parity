@@ -376,8 +376,18 @@ impl<B: Backend> State<B> {
 
 	/// Get the balance of account `a`.
 	pub fn balance(&self, a: &Address) -> trie::Result<U256> {
-		self.ensure_cached(a, RequireCache::None, true,
-			|a| a.as_ref().map_or(U256::zero(), |account| *account.balance()))
+        let aa = a;
+		self.ensure_cached(a, RequireCache::None, true, |a| {
+            let x = a.as_ref();
+            if x.is_none() {
+                error!(
+                    target: "engine",
+                    "state::balance for {} was None",
+                    aa,
+                );
+            }
+            x.map_or(U256::zero(), |account| *account.balance())
+        })
 	}
 
 	/// Get the nonce of account `a`.
