@@ -380,7 +380,7 @@ impl<B: Backend> State<B> {
 		self.ensure_cached(a, RequireCache::None, true, |a| {
             let x = a.as_ref();
             if x.is_none() {
-                info!(
+                trace!(
                     target: "engine",
                     "state::balance for {} was None",
                     aa,
