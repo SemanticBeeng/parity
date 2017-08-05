@@ -369,15 +369,26 @@ impl Ouroboros {
         let network_wide_start_time = Duration::from_secs(self.network_wide_start_time);
 
         if network_wide_start_time > now {
+            warn!(
+                target: "engine",
+                "The network start time is {:?}, it is now {:?}",
+                network_wide_start_time, now,
+            );
+
             return network_wide_start_time - now;
         }
 
         let duration_seconds = self.step_duration.as_secs() as u64;
 
-        let step_end = Duration::from_secs(
-            duration_seconds *
-            (self.step.load(AtomicOrdering::SeqCst) as u64 + 1)
-        ) + network_wide_start_time;
+        let current_step = self.step.load(AtomicOrdering::SeqCst);
+
+        let step_end = Duration::from_secs(duration_seconds * (current_step as u64 + 1)) + network_wide_start_time;
+
+        warn!(
+            target: "engine",
+            "We are on step {}, step {} will start at {:?}; it is now {:?}",
+            current_step, current_step + 1, step_end, now,
+        );
 
 		if step_end > now {
 			step_end - now
@@ -442,7 +453,10 @@ const ENGINE_TIMEOUT_TOKEN: TimerToken = 23;
 impl IoHandler<()> for TransitionHandler {
 	fn initialize(&self, io: &IoContext<()>) {
 		if let Some(engine) = self.engine.upgrade() {
-			io.register_timer_once(ENGINE_TIMEOUT_TOKEN, engine.remaining_step_duration().as_millis())
+            let remaining = engine.remaining_step_duration().as_millis();
+            warn!(target: "engine", "Initializing; waiting {:?} ms until the first step", remaining);
+
+			io.register_timer_once(ENGINE_TIMEOUT_TOKEN, remaining)
 				.unwrap_or_else(|e| warn!(target: "engine", "Failed to start consensus step timer: {}.", e))
 		}
 	}
@@ -451,7 +465,10 @@ impl IoHandler<()> for TransitionHandler {
 		if timer == ENGINE_TIMEOUT_TOKEN {
 			if let Some(engine) = self.engine.upgrade() {
 				engine.step();
-				io.register_timer_once(ENGINE_TIMEOUT_TOKEN, engine.remaining_step_duration().as_millis())
+                let remaining = engine.remaining_step_duration().as_millis();
+                warn!(target: "engine", "Did a step, waiting {:?} ms until the next one", remaining);
+
+				io.register_timer_once(ENGINE_TIMEOUT_TOKEN, remaining)
 					.unwrap_or_else(|e| warn!(target: "engine", "Failed to restart consensus step timer: {}.", e))
 			}
 		}
@@ -476,7 +493,16 @@ impl Engine for Ouroboros {
 	fn builtins(&self) -> &BTreeMap<Address, Builtin> { &self.builtins }
 
 	fn step(&self) {
-		self.step.fetch_add(1, AtomicOrdering::SeqCst);
+		let old = self.step.fetch_add(1, AtomicOrdering::SeqCst);
+
+        warn!(
+            target: "engine",
+            "incremented step from {} to {} (epoch: {}, slot in epoch: {})",
+            old,
+            old+1,
+            self.epoch_number(),
+            self.slot_in_epoch(),
+        );
 
         let pvss_stage = *self.pvss_stage.read();
 
